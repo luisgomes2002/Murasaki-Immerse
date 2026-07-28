@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+build/
+
+# Ambiente / Segredos
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+client_secret*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Chrome extension
+*.crx
+*.pem

@@ -1,0 +1,13 @@
+# ai-jail sandbox configuration
+# https://github.com/akitaonrails/ai-jail
+# Edit freely. Regenerate with: ai-jail --clean --init
+
+command = [
+    "/bin/sh",
+    "-c",
+    'ls package.json 2>/dev/null && cat package.json | head -20 || echo "sem package.json"',
+]
+rw_maps = [
+    "~/Documents/Murasaki Lens",
+    "~/Documents/Murasaki Lens",
+]

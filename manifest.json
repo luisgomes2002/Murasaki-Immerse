@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Murasaki Immerse",
+  "version": "1.0.0",
+  "description": "Track your language immersion time on YouTube automatically",
+  "permissions": ["storage", "identity", "cookies"],
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "*://*.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "oauth2": {
+    "client_id": "784369495899-sk0c8onathhkr66hlbrnpi1u7o4939c7.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/youtube.readonly"]
+  }
+}
