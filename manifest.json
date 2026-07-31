@@ -3,7 +3,7 @@
   "name": "Murasaki Immerse",
   "version": "1.0.0",
   "description": "Track your language immersion time on YouTube automatically",
-  "permissions": ["storage", "identity", "cookies"],
+  "permissions": ["storage", "identity", "downloads"],
   "host_permissions": [
     "https://www.googleapis.com/*",
     "*://*.youtube.com/*"

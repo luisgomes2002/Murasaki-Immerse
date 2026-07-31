@@ -1,114 +1,89 @@
 // Murasaki Immerse — Service Worker (ES Module)
-// Coordinator de tracking: recebe tempo do content script, acumula no storage,
-// responde queries do popup (dashboard), gerencia OAuth e region switch.
+// Coordena o rastreamento e as preferências salvas no próprio navegador.
 
-import { addTime, getToday, getHistory, getWeekHistory, getMonthHistory, getTotalByLanguage, getStreak } from './utils/storage.js';
-
-// ---------- Constantes do cookie PREF ----------
-
-const PREF_COOKIE = {
-  name: 'PREF',
-  domain: '.youtube.com',
-  path: '/',
-  url: 'https://www.youtube.com/',
-  secure: true
-};
-
-// ---------- Estado em memória (tracking por tab) ----------
+import {
+  addTime,
+  getToday,
+  getHistory,
+  getWeekHistory,
+  getMonthHistory,
+  getTotalByLanguage,
+  getStreak,
+  getNativeLanguages,
+  setNativeLanguages,
+  createBackup,
+  restoreBackup
+} from './utils/storage.js';
 
 /** @type {Map<number, { language: string, videoId: string }>} */
 const tabState = new Map();
 
-// ---------- Message Listener ----------
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
-
-    // --- Tracking ---
-
     case 'TRACK_TIME': {
       const { language, seconds, videoId } = message.payload;
       const tabId = sender.tab?.id;
 
-      addTime(null, language, seconds)
-        .then(() => {
-          // Atualiza estado da tab
-          if (tabId) {
-            tabState.set(tabId, { language, videoId });
-          }
-          sendResponse({ ok: true });
+      handleTrackTime(language, seconds)
+        .then(result => {
+          if (result.tracked && tabId) tabState.set(tabId, { language, videoId });
+          sendResponse(result);
         })
         .catch(err => sendResponse({ error: err.message }));
       return true;
     }
 
-    // --- Dashboard queries ---
-
     case 'GET_TODAY':
-      getToday()
-        .then(data => sendResponse(data))
-        .catch(err => sendResponse({ error: err.message }));
+      getToday().then(sendResponse).catch(err => sendResponse({ error: err.message }));
       return true;
 
     case 'GET_HISTORY': {
       const days = message.payload?.days || 7;
-      getHistory(days)
-        .then(data => sendResponse(data))
-        .catch(err => sendResponse({ error: err.message }));
+      getHistory(days).then(sendResponse).catch(err => sendResponse({ error: err.message }));
       return true;
     }
 
     case 'GET_WEEK':
-      getWeekHistory()
-        .then(data => sendResponse(data))
-        .catch(err => sendResponse({ error: err.message }));
+      getWeekHistory().then(sendResponse).catch(err => sendResponse({ error: err.message }));
       return true;
 
     case 'GET_MONTH':
-      getMonthHistory()
-        .then(data => sendResponse(data))
-        .catch(err => sendResponse({ error: err.message }));
+      getMonthHistory().then(sendResponse).catch(err => sendResponse({ error: err.message }));
       return true;
 
     case 'GET_TOTALS': {
       const days = message.payload?.days || 30;
-      getTotalByLanguage(days)
-        .then(data => sendResponse(data))
-        .catch(err => sendResponse({ error: err.message }));
+      getTotalByLanguage(days).then(sendResponse).catch(err => sendResponse({ error: err.message }));
       return true;
     }
 
     case 'GET_STREAK':
-      getStreak()
-        .then(streak => sendResponse({ streak }))
+      getStreak().then(streak => sendResponse({ streak })).catch(err => sendResponse({ error: err.message }));
+      return true;
+
+    case 'GET_NATIVE_LANGUAGES':
+      getNativeLanguages().then(languages => sendResponse({ languages })).catch(err => sendResponse({ error: err.message }));
+      return true;
+
+    case 'SET_NATIVE_LANGUAGES':
+      setNativeLanguages(message.payload?.languages)
+        .then(languages => sendResponse({ languages }))
         .catch(err => sendResponse({ error: err.message }));
       return true;
 
-    // --- OAuth ---
+    case 'EXPORT_BACKUP':
+      createBackup().then(sendResponse).catch(err => sendResponse({ error: err.message }));
+      return true;
+
+    case 'IMPORT_BACKUP':
+      restoreBackup(message.payload?.backup, Boolean(message.payload?.merge))
+        .then(sendResponse)
+        .catch(err => sendResponse({ error: err.message }));
+      return true;
 
     case 'GET_TOKEN':
       getAuthToken(message.payload?.interactive)
         .then(token => sendResponse({ token }))
-        .catch(err => sendResponse({ error: err.message }));
-      return true;
-
-    // --- Region Switch (feature secundária) ---
-
-    case 'SET_REGION':
-      handleSetRegion(message.payload)
-        .then(() => sendResponse({ success: true }))
-        .catch(err => sendResponse({ error: err.message }));
-      return true;
-
-    case 'GET_REGION':
-      handleGetRegion()
-        .then(result => sendResponse(result))
-        .catch(err => sendResponse({ error: err.message }));
-      return true;
-
-    case 'CLEAR_REGION':
-      handleClearRegion()
-        .then(() => sendResponse({ success: true }))
         .catch(err => sendResponse({ error: err.message }));
       return true;
   }
@@ -116,13 +91,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// ---------- OAuth ----------
-
 /**
- * Obtém um token OAuth via Chrome Identity API.
- * @param {boolean} [interactive=true] — se true, mostra o diálogo de login
- * @returns {Promise<string>} o access token
+ * Persiste apenas o tempo em idiomas que não são nativos. A checagem ocorre
+ * aqui, de modo que uma alteração no popup vale imediatamente para todas as
+ * abas abertas do YouTube.
  */
+async function handleTrackTime(language, seconds) {
+  const nativeLanguages = await getNativeLanguages();
+  const normalizedLanguage = String(language || '').toLowerCase().split('-')[0];
+
+  if (nativeLanguages.length === 0) {
+    return { ok: true, tracked: false, reason: 'setup_required' };
+  }
+
+  if (!normalizedLanguage || normalizedLanguage === 'unknown') {
+    return { ok: true, tracked: false, reason: 'unknown_language' };
+  }
+
+  if (nativeLanguages.includes(normalizedLanguage)) {
+    return { ok: true, tracked: false, reason: 'native_language' };
+  }
+
+  await addTime(null, normalizedLanguage, seconds);
+  return { ok: true, tracked: true };
+}
+
 async function getAuthToken(interactive = true) {
   return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (token) => {
@@ -135,73 +128,6 @@ async function getAuthToken(interactive = true) {
         return;
       }
       resolve(token);
-    });
-  });
-}
-
-// ---------- Region Switch (Cookie PREF) ----------
-
-/**
- * Define o cookie PREF com hl e gl para o país desejado.
- * @param {{ countryCode: string, hl: string }} payload
- */
-async function handleSetRegion({ countryCode, hl }) {
-  const cookieValue = `f6=40000000&hl=${hl}&gl=${countryCode}`;
-
-  await chrome.cookies.set({
-    url: PREF_COOKIE.url,
-    name: PREF_COOKIE.name,
-    value: cookieValue,
-    domain: PREF_COOKIE.domain,
-    path: PREF_COOKIE.path,
-    secure: PREF_COOKIE.secure,
-    sameSite: 'no_restriction'
-  });
-}
-
-/**
- * Lê o cookie PREF e extrai o país (gl) atual.
- * @returns {Promise<{ countryCode: string } | {}>}
- */
-async function handleGetRegion() {
-  return new Promise((resolve, reject) => {
-    chrome.cookies.get({
-      url: PREF_COOKIE.url,
-      name: PREF_COOKIE.name
-    }, (cookie) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-
-      if (!cookie) {
-        resolve({});
-        return;
-      }
-
-      // Extrai gl=XX do valor do cookie (ex: "hl=ja&gl=JP")
-      const glMatch = cookie.value.match(/gl=([A-Z]{2,3})/);
-      const countryCode = glMatch ? glMatch[1] : null;
-
-      resolve(countryCode ? { countryCode } : {});
-    });
-  });
-}
-
-/**
- * Remove o cookie PREF, restaurando a região padrão do YouTube.
- */
-async function handleClearRegion() {
-  return new Promise((resolve, reject) => {
-    chrome.cookies.remove({
-      url: PREF_COOKIE.url,
-      name: PREF_COOKIE.name
-    }, (details) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve();
     });
   });
 }

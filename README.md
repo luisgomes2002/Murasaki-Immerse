@@ -1,136 +1,65 @@
-# Murasaki Lens 🔍
+# Murasaki Immerse
 
-Extensão para Google Chrome que permite buscar vídeos do YouTube com filtros de **idioma** e **país/região**, usando a YouTube Data API v3.
+Extensão para Chrome que registra automaticamente o tempo de imersão em idiomas enquanto você assiste a vídeos no YouTube. Os dados ficam somente no navegador, em `chrome.storage.local`; não há conta, dashboard web ou servidor próprio.
 
-Tema escuro Murasaki — elegante, compacto e direto ao ponto.
+## Recursos
 
----
+- Conta somente o tempo em que um vídeo do YouTube está em reprodução.
+- Exclui os idiomas nativos escolhidos por você, para destacar a imersão em outros idiomas.
+- Mostra os totais de hoje, da semana e do mês, a distribuição de idiomas do dia, os últimos sete dias e a sequência atual de dias com imersão.
+- Detecta o idioma pelo cache local, pelas legendas ou metadados disponíveis no player e, quando possível, pela YouTube Data API como último recurso.
+- Lida com a navegação interna do YouTube e interrompe a contagem ao pausar, buscar um trecho ou sair de uma página de vídeo.
+- Oferece backup em JSON, importação substitutiva e mesclagem de históricos.
 
-## Funcionalidades
+## Como usar
 
-- 🔎 Busca vídeos do YouTube por termo textual
-- 🌐 Filtro por **idioma** (30+ idiomas com código ISO)
-- 🗺️ Filtro por **país/região** (48 países)
-- 🔐 Autenticação OAuth 2.0 via Google (chrome.identity)
-- 📋 Histórico das últimas 20 buscas
-- 💾 Preferências salvas automaticamente
-- 🏷️ Badge "Lens" discreto nas páginas do YouTube
-- 🎨 Interface compacta (~380px), tema escuro Murasaki
+1. Clique no ícone da extensão.
+2. Na primeira abertura, adicione pelo menos um idioma nativo e selecione **Save & start tracking**.
+3. Assista a um vídeo em uma página `youtube.com/watch`.
+4. Abra o popup novamente para consultar as estatísticas. Use o ícone de configurações para editar os idiomas nativos ou administrar backups.
 
----
+Vídeos cujo idioma não puder ser identificado não são contabilizados. A detecção usa informações fornecidas pelo YouTube e pode não refletir perfeitamente o idioma falado em todos os vídeos.
 
-## Tecnologias
+## Backup e restauração
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Plataforma | Chrome Extension Manifest V3 |
-| Linguagem | Vanilla JavaScript (ES Modules) |
-| Estilo | CSS3 puro (variáveis, flexbox) |
-| API externa | YouTube Data API v3 |
-| Autenticação | OAuth 2.0 via `chrome.identity.getAuthToken` |
-| Armazenamento | `chrome.storage.local` |
-| Sem dependências | Zero bibliotecas externas |
+Em **Backup & restore**, nas configurações do popup:
 
----
+- **Export backup** baixa um arquivo JSON com o histórico e os idiomas nativos.
+- **Import & replace** substitui todos os dados locais pelo backup, após confirmação.
+- **Merge backup** mantém os dados existentes, une os idiomas nativos e soma os segundos quando data e idioma coincidem.
 
-## Estrutura de arquivos
+O arquivo deve ser um backup criado pelo Murasaki Immerse. A importação aceita arquivos de até 5 MB.
 
+## Privacidade e permissões
+
+| Permissão | Uso |
+| --- | --- |
+| `storage` | Guarda histórico, idiomas nativos e cache de idiomas localmente. |
+| `downloads` | Salva o backup JSON solicitado por você. |
+| `identity` | Tenta obter um token do Google apenas para o fallback de detecção pela YouTube Data API. |
+| `*://*.youtube.com/*` | Observa o player nas páginas do YouTube para registrar o tempo de reprodução. |
+| `https://www.googleapis.com/*` | Consulta metadados do vídeo somente quando os métodos locais de detecção não bastam. |
+
+A extensão não altera região, preferências ou cookies do YouTube. O histórico de imersão é mantido por até 90 dias e o cache de idiomas por até 500 vídeos.
+
+## Desenvolvimento
+
+O projeto é uma extensão Chrome Manifest V3 feita com JavaScript, HTML e CSS puros — não há dependências, etapa de build ou suíte de testes automatizada.
+
+1. Abra `chrome://extensions` no Chrome.
+2. Ative o **Modo do desenvolvedor**.
+3. Clique em **Carregar sem compactação** e selecione a pasta deste repositório.
+4. Recarregue a extensão após modificar `manifest.json`, JavaScript, HTML ou CSS.
+
+Para testar manualmente, abra uma página de vídeo do YouTube, configure os idiomas nativos, reproduza e pause um vídeo em outro idioma e confirme o total no popup. Durante a depuração, os consoles da página e do service worker ficam acessíveis em `chrome://extensions`.
+
+## Estrutura
+
+```text
+├── manifest.json       # configuração Manifest V3, permissões e OAuth
+├── background.js       # service worker e persistência de eventos
+├── content.js          # observação do player e detecção de idioma
+├── popup/              # interface e lógica do painel da extensão
+├── utils/              # armazenamento, idiomas e cliente da YouTube API
+└── icons/              # ícones da extensão
 ```
-murasaki-lens/
-├── manifest.json          # Manifest V3 da extensão
-├── background.js           # Service Worker (ES module)
-├── content.js              # Content script (badge no YouTube)
-├── popup/
-│   ├── popup.html          # Interface do popup
-│   ├── popup.css           # Estilos (tema Murasaki dark)
-│   └── popup.js            # Lógica do popup
-├── utils/
-│   ├── languages.js        # Mapeamento de idiomas e países
-│   ├── youtube-api.js      # Wrapper da YouTube Data API v3
-│   └── storage.js          # Preferências e histórico
-└── icons/
-    └── icon.svg            # Ícone vetorial (base para PNGs)
-```
-
----
-
-## Como instalar (modo desenvolvimento)
-
-1. Clone ou baixe este repositório:
-   ```bash
-   git clone https://github.com/seu-usuario/murasaki-lens.git
-   ```
-
-2. Acesse `chrome://extensions` no Chrome.
-
-3. Ative o **Modo do desenvolvedor** (canto superior direito).
-
-4. Clique em **Carregar sem compactação**.
-
-5. Selecione a pasta do projeto (`murasaki-lens/`).
-
-6. A extensão aparecerá na barra de ferramentas com o ícone da lente roxa.
-
----
-
-## Como configurar (Google Cloud)
-
-A extensão usa a YouTube Data API v3, que exige credenciais do Google Cloud.
-
-### 1. Criar projeto no Google Cloud Console
-
-- Acesse [console.cloud.google.com](https://console.cloud.google.com)
-- Crie um novo projeto ou selecione um existente
-
-### 2. Ativar a YouTube Data API v3
-
-- Vá em **APIs e Serviços** → **Biblioteca**
-- Busque por "YouTube Data API v3" e clique em **Ativar**
-
-### 3. Criar credencial OAuth 2.0
-
-- Vá em **APIs e Serviços** → **Credenciais**
-- Clique em **Criar credenciais** → **ID do cliente OAuth**
-- Tipo de aplicação: **Aplicativo do Chrome**
-- Preencha os dados e anote o **Client ID**
-
-### 4. Obter chave de API
-
-- Na mesma tela de Credenciais, clique em **Criar credenciais** → **Chave de API**
-- Anote a chave gerada
-
-### 5. Substituir placeholders no código
-
-- Abra `manifest.json` e substitua `MURASAKI_LENS_CLIENT_ID` pelo Client ID real
-- Abra `utils/youtube-api.js` e substitua `MURASAKI_LENS_API_KEY` pela chave de API real
-
-### 6. Recarregar a extensão
-
-- Volte em `chrome://extensions` e clique no ícone de recarregar da extensão
-
----
-
-## Fluxo de uso
-
-1. Clique no ícone da extensão na barra de ferramentas.
-2. Selecione o **idioma** e o **país** desejados nos dropdowns.
-3. Digite sua busca e pressione **Enter** ou clique na lupa.
-4. Na primeira busca, o Chrome solicitará autorização da sua conta Google.
-5. Os resultados aparecem como cards com thumbnail, título, canal e duração.
-6. Clique em qualquer card para abrir o vídeo no YouTube.
-
----
-
-## Permissões
-
-| Permissão | Motivo |
-|-----------|--------|
-| `storage` | Salvar preferências e histórico |
-| `identity` | OAuth 2.0 com conta Google |
-| `https://www.googleapis.com/*` | Chamadas à YouTube Data API |
-
----
-
-## Licença
-
-MIT © 2026 Murasaki Lens

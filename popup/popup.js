@@ -1,278 +1,396 @@
-// Murasaki Immerse — Dashboard do popup
-// Exibe streak (badge), cards today/week/month, breakdown por idioma, gráfico semanal e region switch.
+// Murasaki Immerse — popup local do rastreador
 
-import { LANGUAGES, COUNTRIES, getLanguageName } from '../utils/languages.js';
-
-// ---------- Mapeamento país → hl ----------
-
-const COUNTRY_TO_HL = {
-  'AR': 'es', 'AU': 'en', 'AT': 'de', 'BE': 'nl', 'BR': 'pt',
-  'CA': 'en', 'CL': 'es', 'CO': 'es', 'CZ': 'cs', 'DK': 'da',
-  'EG': 'ar', 'FI': 'fi', 'FR': 'fr', 'DE': 'de', 'GR': 'el',
-  'HK': 'zh', 'HU': 'hu', 'IN': 'hi', 'ID': 'id', 'IE': 'en',
-  'IL': 'he', 'IT': 'it', 'JP': 'ja', 'KR': 'ko', 'MY': 'ms',
-  'MX': 'es', 'NL': 'nl', 'NZ': 'en', 'NG': 'en', 'NO': 'no',
-  'PE': 'es', 'PH': 'en', 'PL': 'pl', 'PT': 'pt', 'RO': 'ro',
-  'RU': 'ru', 'SA': 'ar', 'SG': 'en', 'ZA': 'en', 'ES': 'es',
-  'SE': 'sv', 'CH': 'de', 'TW': 'zh', 'TH': 'th', 'TR': 'tr',
-  'UA': 'uk', 'GB': 'en', 'US': 'en', 'VN': 'vi'
-};
-
-// ---------- Cores das barras (ciclo) ----------
+import { LANGUAGES, getLanguageName } from "../utils/languages.js";
 
 const BAR_COLORS = [
-  '#8b5cf6', '#60a5fa', '#34d399', '#fbbf24', '#f87171',
-  '#c084fc', '#fb923c', '#4ade80', '#f472b6', '#a78bfa'
+  "#8b5cf6",
+  "#60a5fa",
+  "#34d399",
+  "#fbbf24",
+  "#f87171",
+  "#c084fc",
+  "#fb923c",
+  "#4ade80",
+  "#f472b6",
+  "#a78bfa",
 ];
+const dashboard = document.getElementById("dashboard");
+const nativeSettings = document.getElementById("native-settings");
+const settingsToggle = document.getElementById("native-settings-toggle");
+const settingsClose = document.getElementById("native-settings-close");
+const nativeLanguageSelect = document.getElementById("native-language-select");
+const nativeLanguageChips = document.getElementById("native-language-chips");
+const nativeLanguageMessage = document.getElementById(
+  "native-language-message",
+);
+const addNativeLanguageButton = document.getElementById("add-native-language");
+const saveNativeLanguagesButton = document.getElementById(
+  "save-native-languages",
+);
+const exportBackupButton = document.getElementById("export-backup");
+const importBackupButton = document.getElementById("import-backup");
+const mergeBackupButton = document.getElementById("merge-backup");
+const backupFileInput = document.getElementById("backup-file-input");
+const backupMessage = document.getElementById("backup-message");
+const todayValue = document.getElementById("today-value");
+const weekValue = document.getElementById("week-value");
+const monthValue = document.getElementById("month-value");
+const languagesList = document.getElementById("languages-list");
+const weekChart = document.getElementById("week-chart");
+const lastUpdate = document.getElementById("last-update");
+const refreshBtn = document.getElementById("refresh-btn");
 
-// ---------- Elementos do DOM ----------
+let nativeLanguages = [];
+let setupComplete = false;
+let pendingImportMode = null;
 
-const todayValue = document.getElementById('today-value');
-const weekValue = document.getElementById('week-value');
-const monthValue = document.getElementById('month-value');
-const languagesList = document.getElementById('languages-list');
-const weekChart = document.getElementById('week-chart');
-const lastUpdate = document.getElementById('last-update');
-const refreshBtn = document.getElementById('refresh-btn');
-
-// Region switch
-const regionToggle = document.getElementById('region-toggle');
-const regionChevron = document.getElementById('region-chevron');
-const regionBody = document.getElementById('region-body');
-const regionInactive = document.getElementById('region-inactive');
-const regionActive = document.getElementById('region-active');
-const regionCountrySelect = document.getElementById('region-country');
-const regionSwitchBtn = document.getElementById('region-switch-btn');
-const regionRestoreBtn = document.getElementById('region-restore-btn');
-const regionCurrent = document.getElementById('region-current');
-
-// ---------- Inicialização ----------
-
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-  populateRegionDropdown();
-  await loadDashboard();
-  await checkRegionStatus();
-
-  refreshBtn.addEventListener('click', loadDashboard);
-  regionToggle.addEventListener('click', toggleRegion);
-  regionSwitchBtn.addEventListener('click', onRegionSwitch);
-  regionRestoreBtn.addEventListener('click', onRegionRestore);
+  populateNativeLanguageDropdown();
+  bindEvents();
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "GET_NATIVE_LANGUAGES",
+    });
+    if (response?.error) throw new Error(response.error);
+    nativeLanguages = response?.languages || [];
+  } catch (error) {
+    console.error("Native language settings failed to load:", error);
+    setSettingsMessage("Could not load your settings. Please try again.", true);
+  }
+  setupComplete = nativeLanguages.length > 0;
+  renderNativeLanguages();
+  setSettingsOpen(!setupComplete);
+  if (setupComplete) await loadDashboard();
 }
 
-// ---------- Dashboard ----------
+function bindEvents() {
+  refreshBtn.addEventListener("click", loadDashboard);
+  settingsToggle.addEventListener("click", () => setSettingsOpen(true));
+  settingsClose.addEventListener("click", () => {
+    if (setupComplete) setSettingsOpen(false);
+  });
+  addNativeLanguageButton.addEventListener("click", addNativeLanguage);
+  saveNativeLanguagesButton.addEventListener("click", saveNativeLanguages);
+  exportBackupButton.addEventListener("click", exportBackup);
+  importBackupButton.addEventListener("click", () =>
+    chooseBackupFile("replace"),
+  );
+  mergeBackupButton.addEventListener("click", () => chooseBackupFile("merge"));
+  backupFileInput.addEventListener("change", importBackupFile);
+  nativeLanguageChips.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-language]");
+    if (!button) return;
+    nativeLanguages = nativeLanguages.filter(
+      (language) => language !== button.dataset.language,
+    );
+    setSettingsMessage("");
+    renderNativeLanguages();
+  });
+}
+
+function populateNativeLanguageDropdown() {
+  nativeLanguageSelect.innerHTML =
+    '<option value="">Select a language</option>';
+  for (const language of LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = language.code;
+    option.textContent = language.name;
+    nativeLanguageSelect.appendChild(option);
+  }
+}
+
+function addNativeLanguage() {
+  const language = nativeLanguageSelect.value;
+  if (!language) return setSettingsMessage("Choose a language to add.", true);
+  if (!nativeLanguages.includes(language)) nativeLanguages.push(language);
+  nativeLanguageSelect.value = "";
+  setSettingsMessage("");
+  renderNativeLanguages();
+}
+
+function renderNativeLanguages() {
+  if (!nativeLanguages.length) {
+    nativeLanguageChips.innerHTML =
+      '<span class="chips-placeholder">No native languages added yet</span>';
+  } else {
+    nativeLanguageChips.innerHTML = nativeLanguages
+      .map((language) => {
+        const name = escapeHtml(getLanguageName(language));
+        return (
+          '<span class="language-chip">' +
+          name +
+          '<button type="button" data-language="' +
+          escapeHtml(language) +
+          '" aria-label="Remove ' +
+          name +
+          '">×</button></span>'
+        );
+      })
+      .join("");
+  }
+  for (const option of nativeLanguageSelect.options)
+    option.disabled = nativeLanguages.includes(option.value);
+}
+
+async function saveNativeLanguages() {
+  if (!nativeLanguages.length)
+    return setSettingsMessage(
+      "Add at least one native language before starting.",
+      true,
+    );
+  saveNativeLanguagesButton.disabled = true;
+  saveNativeLanguagesButton.textContent = "Saving…";
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "SET_NATIVE_LANGUAGES",
+      payload: { languages: nativeLanguages },
+    });
+    if (response?.error) throw new Error(response.error);
+    nativeLanguages = response?.languages || nativeLanguages;
+    setupComplete = true;
+    setSettingsMessage("");
+    setSettingsOpen(false);
+    await loadDashboard();
+  } catch (error) {
+    console.error("Native language settings failed to save:", error);
+    setSettingsMessage("Could not save your settings. Please try again.", true);
+  } finally {
+    saveNativeLanguagesButton.disabled = false;
+    saveNativeLanguagesButton.textContent = "Save & start tracking";
+  }
+}
+
+async function exportBackup() {
+  setBackupMessage("");
+  exportBackupButton.disabled = true;
+  try {
+    const backup = await chrome.runtime.sendMessage({ type: "EXPORT_BACKUP" });
+    if (backup?.error) throw new Error(backup.error);
+
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }),
+    );
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = "murasaki-immerse-backup-" + date + ".json";
+    if (chrome.downloads?.download) {
+      await chrome.downloads.download({ url, filename, saveAs: true });
+    } else {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setBackupMessage("Backup download started.");
+  } catch (error) {
+    console.error("Backup export failed:", error);
+    setBackupMessage("Could not export the backup. Please try again.", true);
+  } finally {
+    exportBackupButton.disabled = false;
+  }
+}
+
+function chooseBackupFile(mode) {
+  if (
+    mode === "replace" &&
+    !window.confirm(
+      "Replace all current immersion data with this backup? This cannot be undone.",
+    )
+  )
+    return;
+  pendingImportMode = mode;
+  backupFileInput.value = "";
+  backupFileInput.click();
+}
+
+async function importBackupFile() {
+  const file = backupFileInput.files?.[0];
+  if (!file || !pendingImportMode) return;
+  if (file.size > 5 * 1024 * 1024) {
+    setBackupMessage("This backup file is too large.", true);
+    return;
+  }
+
+  const mode = pendingImportMode;
+  pendingImportMode = null;
+  const buttons = [importBackupButton, mergeBackupButton];
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  setBackupMessage("Importing…");
+  try {
+    const backup = JSON.parse(await file.text());
+    const response = await chrome.runtime.sendMessage({
+      type: "IMPORT_BACKUP",
+      payload: { backup, merge: mode === "merge" },
+    });
+    if (response?.error) throw new Error(response.error);
+
+    nativeLanguages = response.nativeLanguages || [];
+    setupComplete = nativeLanguages.length > 0;
+    renderNativeLanguages();
+    setSettingsOpen(true);
+    if (setupComplete) await loadDashboard();
+    setBackupMessage(
+      mode === "merge"
+        ? "Backup merged successfully."
+        : "Backup imported successfully.",
+    );
+  } catch (error) {
+    console.error("Backup import failed:", error);
+    setBackupMessage(error.message || "Could not import this backup.", true);
+  } finally {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+  }
+}
+
+function setBackupMessage(message, isError = false) {
+  backupMessage.textContent = message;
+  backupMessage.classList.toggle("is-error", Boolean(message && isError));
+}
+
+function setSettingsOpen(open) {
+  nativeSettings.classList.toggle("hidden", !open);
+  dashboard.classList.toggle("hidden", open);
+  settingsToggle.classList.toggle("hidden", open && !setupComplete);
+  settingsClose.classList.toggle("hidden", !setupComplete);
+}
+
+function setSettingsMessage(message, isError = false) {
+  nativeLanguageMessage.textContent = message;
+  nativeLanguageMessage.classList.toggle(
+    "is-error",
+    Boolean(message && isError),
+  );
+}
 
 async function loadDashboard() {
   try {
     const [streakResp, todayResp, weekResp, monthResp] = await Promise.all([
-      chrome.runtime.sendMessage({ type: 'GET_STREAK' }),
-      chrome.runtime.sendMessage({ type: 'GET_TODAY' }),
-      chrome.runtime.sendMessage({ type: 'GET_WEEK' }),
-      chrome.runtime.sendMessage({ type: 'GET_MONTH' })
+      chrome.runtime.sendMessage({ type: "GET_STREAK" }),
+      chrome.runtime.sendMessage({ type: "GET_TODAY" }),
+      chrome.runtime.sendMessage({ type: "GET_WEEK" }),
+      chrome.runtime.sendMessage({ type: "GET_MONTH" }),
     ]);
-
-    renderStats(streakResp?.streak || 0, todayResp, weekResp || [], monthResp || []);
+    renderStats(
+      streakResp?.streak || 0,
+      todayResp,
+      weekResp || [],
+      monthResp || [],
+    );
     renderLanguages(todayResp?.languages || {}, todayResp?.totalSeconds || 0);
     renderWeekChart(weekResp || []);
-
-    lastUpdate.textContent = `Updated ${formatTime(new Date())}`;
-  } catch (err) {
-    console.error('Dashboard load error:', err);
-    lastUpdate.textContent = 'Failed to load';
+    lastUpdate.textContent = "Updated " + formatTime(new Date());
+  } catch (error) {
+    console.error("Dashboard load error:", error);
+    lastUpdate.textContent = "Failed to load";
   }
 }
 
-// ---------- Stats ----------
-
 function renderStats(streak, today, weekData, monthData) {
-  // Streak badge no header
-  document.getElementById('streak-value').textContent = streak;
-
-  // Today
-  const todaySec = today?.totalSeconds || 0;
-  todayValue.textContent = formatDuration(todaySec);
-
-  // This week — soma dos totalSeconds do array de 7 dias
-  const weekSec = weekData.reduce((sum, day) => sum + (day.totalSeconds || 0), 0);
-  weekValue.textContent = formatDuration(weekSec);
-
-  // This month — soma dos totalSeconds do array de 4 semanas
-  const monthSec = monthData.reduce((sum, week) => sum + (week.totalSeconds || 0), 0);
-  monthValue.textContent = formatDuration(monthSec);
+  document.getElementById("streak-value").textContent = streak;
+  todayValue.textContent = formatDuration(today?.totalSeconds || 0);
+  weekValue.textContent = formatDuration(
+    weekData.reduce((sum, day) => sum + (day.totalSeconds || 0), 0),
+  );
+  monthValue.textContent = formatDuration(
+    monthData.reduce((sum, week) => sum + (week.totalSeconds || 0), 0),
+  );
 }
-
-// ---------- Language breakdown ----------
 
 function renderLanguages(languages, totalSeconds) {
   const entries = Object.entries(languages).sort((a, b) => b[1] - a[1]);
-
-  if (entries.length === 0) {
-    languagesList.innerHTML = '<div class="empty-hint">No immersion data yet. Start watching!</div>';
+  if (!entries.length) {
+    languagesList.innerHTML =
+      '<div class="empty-hint">No immersion data yet. Start watching!</div>';
     return;
   }
-
-  let html = '';
-  const maxSec = entries[0][1];
-
-  entries.forEach(([code, sec], i) => {
-    const name = getLanguageName(code);
-    const pct = totalSeconds > 0 ? Math.round((sec / totalSeconds) * 100) : 0;
-    const barPct = maxSec > 0 ? (sec / maxSec) * 100 : 0;
-    const color = BAR_COLORS[i % BAR_COLORS.length];
-
-    html += `
-      <div class="language-bar">
-        <span class="language-name">${escapeHtml(name)}</span>
-        <div class="language-track">
-          <div class="language-fill" style="width:${barPct}%;background:${color};"></div>
-        </div>
-        <span class="language-time">${formatDuration(sec)}</span>
-      </div>`;
-  });
-
-  languagesList.innerHTML = html;
+  const maxSeconds = entries[0][1];
+  languagesList.innerHTML = entries
+    .map(([code, seconds], index) => {
+      const name = escapeHtml(getLanguageName(code));
+      const barPercent = maxSeconds ? (seconds / maxSeconds) * 100 : 0;
+      const percentage = totalSeconds
+        ? Math.round((seconds / totalSeconds) * 100)
+        : 0;
+      return (
+        '<div class="language-bar" title="' +
+        name +
+        ": " +
+        percentage +
+        '%"><span class="language-name">' +
+        name +
+        '</span><div class="language-track"><div class="language-fill" style="width:' +
+        barPercent +
+        "%;background:" +
+        BAR_COLORS[index % BAR_COLORS.length] +
+        ';"></div></div><span class="language-time">' +
+        formatDuration(seconds) +
+        "</span></div>"
+      );
+    })
+    .join("");
 }
 
-// ---------- Week chart ----------
-
 function renderWeekChart(weekData) {
-  if (!weekData || weekData.length === 0) {
+  if (!weekData.length) {
     weekChart.innerHTML = '<div class="empty-hint">No data yet</div>';
     return;
   }
-
-  // Encontra o máximo para escala
-  let maxSec = 1;
-  for (const day of weekData) {
-    if (day.totalSeconds > maxSec) maxSec = day.totalSeconds;
-  }
-
-  // Ordem cronológica: dia 6 atrás → hoje
-  const ordered = [...weekData].reverse();
-
-  let html = '';
-  for (const day of ordered) {
-    const height = maxSec > 0 ? Math.max(4, (day.totalSeconds / maxSec) * 60) : 4;
-    const label = formatDayLabel(day.date);
-    const isEmpty = day.totalSeconds === 0;
-
-    html += `
-      <div class="week-bar-wrap" title="${label}: ${formatDuration(day.totalSeconds)}">
-        <div class="week-bar${isEmpty ? ' empty' : ''}" style="height:${height}px;"></div>
-        <span class="week-label">${label}</span>
-      </div>`;
-  }
-
-  weekChart.innerHTML = html;
+  const maxSeconds = Math.max(
+    1,
+    ...weekData.map((day) => day.totalSeconds || 0),
+  );
+  weekChart.innerHTML = [...weekData]
+    .reverse()
+    .map((day) => {
+      const seconds = day.totalSeconds || 0;
+      const label = formatDayLabel(day.date);
+      const height = Math.max(4, (seconds / maxSeconds) * 60);
+      return (
+        '<div class="week-bar-wrap" title="' +
+        label +
+        ": " +
+        formatDuration(seconds) +
+        '"><div class="week-bar' +
+        (seconds === 0 ? " empty" : "") +
+        '" style="height:' +
+        height +
+        'px;"></div><span class="week-label">' +
+        label +
+        "</span></div>"
+      );
+    })
+    .join("");
 }
-
-// ---------- Region Switch ----------
-
-function populateRegionDropdown() {
-  while (regionCountrySelect.options.length > 0) {
-    regionCountrySelect.remove(0);
-  }
-
-  for (const country of COUNTRIES) {
-    const option = document.createElement('option');
-    option.value = country.code;
-    option.textContent = country.name;
-    regionCountrySelect.appendChild(option);
-  }
-}
-
-async function checkRegionStatus() {
-  try {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_REGION' });
-    if (response && response.countryCode) {
-      const country = COUNTRIES.find(c => c.code === response.countryCode);
-      regionCurrent.textContent = country ? country.name : response.countryCode;
-      regionActive.classList.remove('hidden');
-      regionInactive.classList.add('hidden');
-    } else {
-      regionActive.classList.add('hidden');
-      regionInactive.classList.remove('hidden');
-    }
-  } catch {
-    regionActive.classList.add('hidden');
-    regionInactive.classList.remove('hidden');
-  }
-}
-
-function toggleRegion() {
-  const isOpen = !regionBody.classList.contains('hidden');
-  if (isOpen) {
-    regionBody.classList.add('hidden');
-    regionToggle.classList.remove('open');
-  } else {
-    regionBody.classList.remove('hidden');
-    regionToggle.classList.add('open');
-  }
-}
-
-async function onRegionSwitch() {
-  const countryCode = regionCountrySelect.value;
-  if (!countryCode) return;
-
-  const hl = COUNTRY_TO_HL[countryCode] || countryCode.toLowerCase();
-
-  await chrome.runtime.sendMessage({
-    type: 'SET_REGION',
-    payload: { countryCode, hl }
-  });
-
-  reloadYouTubeTab(countryCode, hl);
-  await checkRegionStatus();
-}
-
-async function onRegionRestore() {
-  await chrome.runtime.sendMessage({ type: 'CLEAR_REGION' });
-
-  reloadYouTubeTab();
-  await checkRegionStatus();
-}
-
-function reloadYouTubeTab(countryCode, hl) {
-  chrome.tabs.query({ url: '*://*.youtube.com/*' }, (tabs) => {
-    for (const tab of tabs) {
-      if (countryCode && hl) {
-        const newUrl = `https://www.youtube.com/?persist_gl=1&gl=${countryCode}&hl=${hl}`;
-        chrome.tabs.update(tab.id, { url: newUrl });
-      } else {
-        chrome.tabs.update(tab.id, { url: 'https://www.youtube.com/' });
-      }
-    }
-  });
-}
-
-// ---------- Formatação ----------
 
 function formatDuration(totalSeconds) {
-  if (totalSeconds <= 0) return '0m';
-
+  if (totalSeconds <= 0) return "0m";
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
+  return hours > 0 ? hours + "h " + minutes + "m" : minutes + "m";
 }
 
-function formatDayLabel(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return days[d.getDay()];
+function formatDayLabel(dateString) {
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+    new Date(dateString + "T00:00:00").getDay()
+  ];
 }
 
 function formatTime(date) {
-  const pad = n => String(n).padStart(2, '0');
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return (
+    String(date.getHours()).padStart(2, "0") +
+    ":" +
+    String(date.getMinutes()).padStart(2, "0")
+  );
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value || "";
   return div.innerHTML;
 }

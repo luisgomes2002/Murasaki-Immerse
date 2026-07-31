@@ -4,6 +4,7 @@
 const DATA_KEY = 'immersion_data';
 const LANG_CACHE_KEY = 'immersion_lang_cache';
 const STREAK_KEY = 'immersion_streak';
+const NATIVE_LANGUAGES_KEY = 'immersion_native_languages';
 const MAX_HISTORY_DAYS = 90; // mantém até 90 dias de histórico
 
 // ---------- Helpers de data ----------
@@ -130,6 +131,109 @@ export async function getStreak() {
   }
 
   return streak;
+}
+
+// ---------- Idiomas nativos ----------
+
+/**
+ * Retorna os idiomas nativos configurados. Uma lista vazia significa que o
+ * usuário ainda não concluiu a configuração inicial e nada deve ser contado.
+ * @returns {Promise<string[]>}
+ */
+export async function getNativeLanguages() {
+  const result = await chrome.storage.local.get(NATIVE_LANGUAGES_KEY);
+  return Array.isArray(result[NATIVE_LANGUAGES_KEY]) ? result[NATIVE_LANGUAGES_KEY] : [];
+}
+
+/**
+ * Salva idiomas nativos como códigos ISO-639-1 únicos.
+ * @param {string[]} languages
+ */
+export async function setNativeLanguages(languages) {
+  const normalized = [...new Set((languages || [])
+    .filter(language => typeof language === 'string')
+    .map(language => language.toLowerCase().split('-')[0])
+    .filter(language => /^[a-z]{2,3}$/.test(language)))];
+
+  await chrome.storage.local.set({ [NATIVE_LANGUAGES_KEY]: normalized });
+  return normalized;
+}
+
+
+// ---------- Backup ----------
+
+const BACKUP_FORMAT = 'murasaki-immerse-backup';
+const BACKUP_VERSION = 1;
+
+/** Cria um arquivo portável com os tempos e idiomas nativos do usuário. */
+export async function createBackup() {
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    nativeLanguages: await getNativeLanguages(),
+    immersionData: await loadData()
+  };
+}
+
+function normalizeBackupData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('The backup has no valid immersion data.');
+  }
+
+  const normalized = {};
+  for (const [date, languages] of Object.entries(data)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !languages || typeof languages !== 'object' || Array.isArray(languages)) continue;
+
+    const day = {};
+    for (const [language, seconds] of Object.entries(languages)) {
+      if (typeof language === 'string' && language && Number.isFinite(seconds) && seconds > 0) {
+        day[language] = seconds;
+      }
+    }
+    if (Object.keys(day).length) normalized[date] = day;
+  }
+  return normalized;
+}
+
+function normalizeNativeLanguageList(languages) {
+  return [...new Set((languages || [])
+    .filter(language => typeof language === 'string')
+    .map(language => language.toLowerCase().split('-')[0])
+    .filter(language => /^[a-z]{2,3}$/.test(language)))];
+}
+
+function mergeImmersionData(currentData, importedData) {
+  const merged = normalizeBackupData(currentData);
+  for (const [date, languages] of Object.entries(importedData)) {
+    if (!merged[date]) merged[date] = {};
+    for (const [language, seconds] of Object.entries(languages)) {
+      merged[date][language] = (merged[date][language] || 0) + seconds;
+    }
+  }
+  return merged;
+}
+
+/**
+ * Restaura um backup ou soma seus valores aos dados existentes. O merge não
+ * remove idiomas nativos: tempos na mesma data e idioma são simplesmente somados.
+ */
+export async function restoreBackup(backup, merge = false) {
+  if (!backup || backup.format !== BACKUP_FORMAT || backup.version !== BACKUP_VERSION) {
+    throw new Error('This file is not a Murasaki Immerse backup.');
+  }
+
+  const importedData = normalizeBackupData(backup.immersionData);
+  const importedNativeLanguages = normalizeNativeLanguageList(backup.nativeLanguages);
+  const data = merge ? mergeImmersionData(await loadData(), importedData) : importedData;
+  const nativeLanguages = merge
+    ? [...new Set([...(await getNativeLanguages()), ...importedNativeLanguages])]
+    : importedNativeLanguages;
+
+  await saveData(data);
+  await chrome.storage.local.set({ [NATIVE_LANGUAGES_KEY]: nativeLanguages });
+
+  return { merged: merge, nativeLanguages, importedDays: Object.keys(importedData).length };
 }
 
 // ---------- Agregações ----------

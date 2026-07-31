@@ -66,13 +66,9 @@
    * @returns {string|null} código ISO do idioma ou null
    */
   function detectLanguageDOM() {
-    // 1. Tenta o lang attribute do documento
-    const docLang = document.documentElement.lang;
-    if (docLang && docLang.length >= 2) {
-      return docLang.slice(0, 2).toLowerCase();
-    }
-
-    // 2. Procura track de legenda ativo no <video>
+    // O idioma do documento é a interface do YouTube, não necessariamente o
+    // áudio do vídeo; por isso ele não é usado para contabilizar imersão.
+    // 1. Procura track de legenda ativo no <video>.
     const video = document.querySelector('video');
     if (video && video.textTracks) {
       for (let i = 0; i < video.textTracks.length; i++) {
@@ -83,16 +79,14 @@
       }
     }
 
-    // 3. Tenta o atributo lang no ytd-watch-metadata
-    const metadata = document.querySelector('ytd-watch-metadata');
-    if (metadata) {
-      const langAttr = metadata.getAttribute('lang');
-      if (langAttr && langAttr.length >= 2) {
-        return langAttr.slice(0, 2).toLowerCase();
-      }
+    // 2. Tenta os metadados de idioma do próprio vídeo, quando disponíveis.
+    const languageMeta = document.querySelector('meta[itemprop="inLanguage"]');
+    const metadataLanguage = languageMeta?.getAttribute('content');
+    if (metadataLanguage && metadataLanguage.length >= 2) {
+      return metadataLanguage.slice(0, 2).toLowerCase();
     }
 
-    // 4. Heurística por script detection no título
+    // 3. Heurística por script detection no título
     const title = document.querySelector('h1.ytd-watch-metadata yt-formatted-string, h1 yt-formatted-string');
     if (title) {
       const text = title.textContent || '';
@@ -139,7 +133,7 @@
       if (items.length === 0) return null;
 
       const lang = items[0].snippet?.defaultAudioLanguage;
-      return lang ? lang.toLowerCase() : null;
+      return lang ? lang.toLowerCase().split('-')[0] : null;
     } catch {
       return null;
     }
@@ -157,7 +151,7 @@
 
     // 1. Cache
     const cached = await getCachedLanguage(videoId);
-    if (cached) return cached;
+    if (cached && cached !== 'unknown') return cached.toLowerCase().split('-')[0];
 
     // 2. DOM scraping
     const domLang = detectLanguageDOM();
@@ -213,14 +207,21 @@
 
     accumulatedSeconds = 0;
 
-    chrome.runtime.sendMessage({
-      type: 'TRACK_TIME',
-      payload: {
-        language: currentLanguage,
-        seconds,
-        videoId: currentVideoId
-      }
-    }).catch(() => { /* background pode não estar pronto */ });
+    // O Chrome invalida o contexto deste script quando a extensão é
+    // recarregada. Nesse caso, ignoramos o envio pendente sem poluir o console.
+    try {
+      const message = chrome.runtime.sendMessage({
+        type: 'TRACK_TIME',
+        payload: {
+          language: currentLanguage,
+          seconds,
+          videoId: currentVideoId
+        }
+      });
+      message?.catch(() => { /* background pode não estar pronto */ });
+    } catch {
+      // Extension context invalidated: a página ainda usa o script anterior.
+    }
   }
 
   /**
