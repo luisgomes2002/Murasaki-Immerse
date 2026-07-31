@@ -86,6 +86,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(token => sendResponse({ token }))
         .catch(err => sendResponse({ error: err.message }));
       return true;
+
+    // These actions are deliberately initiated from a popup button. The
+    // content script only ever makes non-interactive requests while detecting
+    // a video's language, so watching a video cannot trigger a sign-in prompt.
+    case 'CONNECT_GOOGLE':
+      getAuthToken(true)
+        .then(() => sendResponse({ connected: true }))
+        .catch(err => sendResponse({ error: err.message }));
+      return true;
+
+    case 'GET_GOOGLE_CONNECTION_STATUS':
+      getAuthToken(false)
+        .then(() => sendResponse({ connected: true }))
+        .catch(() => sendResponse({ connected: false }));
+      return true;
+
+    case 'DISCONNECT_GOOGLE':
+      clearGoogleAuth()
+        .then(() => sendResponse({ connected: false }))
+        .catch(err => sendResponse({ error: err.message }));
+      return true;
   }
 
   return false;
@@ -118,7 +139,7 @@ async function handleTrackTime(language, seconds) {
 
 async function getAuthToken(interactive = true) {
   return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (token) => {
+    chrome.identity.getAuthToken({ interactive, enableGranularPermissions: true }, (token) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
@@ -130,4 +151,13 @@ async function getAuthToken(interactive = true) {
       resolve(token);
     });
   });
+}
+
+
+/** Clears Chrome's cached OAuth state without changing local immersion history. */
+async function clearGoogleAuth() {
+  if (!chrome.identity.clearAllCachedAuthTokens) {
+    throw new Error('Disconnecting Google is not supported by this Chrome version.');
+  }
+  await chrome.identity.clearAllCachedAuthTokens();
 }

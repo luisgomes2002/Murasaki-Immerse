@@ -32,6 +32,10 @@ const importBackupButton = document.getElementById("import-backup");
 const mergeBackupButton = document.getElementById("merge-backup");
 const backupFileInput = document.getElementById("backup-file-input");
 const backupMessage = document.getElementById("backup-message");
+const connectGoogleButton = document.getElementById("connect-google");
+const disconnectGoogleButton = document.getElementById("disconnect-google");
+const googleConnectionStatus = document.getElementById("google-connection-status");
+const googleMessage = document.getElementById("google-message");
 const todayValue = document.getElementById("today-value");
 const weekValue = document.getElementById("week-value");
 const monthValue = document.getElementById("month-value");
@@ -62,6 +66,7 @@ async function init() {
   setupComplete = nativeLanguages.length > 0;
   renderNativeLanguages();
   setSettingsOpen(!setupComplete);
+  await loadGoogleConnectionStatus();
   if (setupComplete) await loadDashboard();
 }
 
@@ -79,6 +84,8 @@ function bindEvents() {
   );
   mergeBackupButton.addEventListener("click", () => chooseBackupFile("merge"));
   backupFileInput.addEventListener("change", importBackupFile);
+  connectGoogleButton.addEventListener("click", connectGoogle);
+  disconnectGoogleButton.addEventListener("click", disconnectGoogle);
   nativeLanguageChips.addEventListener("click", (event) => {
     const button = event.target.closest("[data-language]");
     if (!button) return;
@@ -393,4 +400,62 @@ function escapeHtml(value) {
   const div = document.createElement("div");
   div.textContent = value || "";
   return div.innerHTML;
+}
+
+async function loadGoogleConnectionStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GET_GOOGLE_CONNECTION_STATUS" });
+    if (response?.error) throw new Error(response.error);
+    renderGoogleConnectionStatus(Boolean(response?.connected));
+  } catch (error) {
+    console.error("Google connection status failed to load:", error);
+    googleConnectionStatus.textContent = "Connection status unavailable";
+    setGoogleMessage("Could not check Google connection status.", true);
+  }
+}
+
+function renderGoogleConnectionStatus(connected) {
+  googleConnectionStatus.textContent = connected ? "Google connected" : "Google not connected";
+  googleConnectionStatus.classList.toggle("is-connected", connected);
+  connectGoogleButton.classList.toggle("hidden", connected);
+  disconnectGoogleButton.classList.toggle("hidden", !connected);
+}
+
+async function connectGoogle() {
+  setGoogleMessage("");
+  connectGoogleButton.disabled = true;
+  connectGoogleButton.textContent = "Connecting…";
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "CONNECT_GOOGLE" });
+    if (response?.error || !response?.connected) throw new Error(response?.error || "Google authorization was not completed.");
+    renderGoogleConnectionStatus(true);
+    setGoogleMessage("Google connected. Only read-only YouTube video metadata is used when needed.");
+  } catch (error) {
+    console.error("Google connection failed:", error);
+    setGoogleMessage("Google was not connected. You can keep using local detection.", true);
+  } finally {
+    connectGoogleButton.disabled = false;
+    connectGoogleButton.textContent = "Connect Google";
+  }
+}
+
+async function disconnectGoogle() {
+  setGoogleMessage("");
+  disconnectGoogleButton.disabled = true;
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "DISCONNECT_GOOGLE" });
+    if (response?.error) throw new Error(response.error);
+    renderGoogleConnectionStatus(false);
+    setGoogleMessage("Google connection removed from this browser.");
+  } catch (error) {
+    console.error("Google disconnect failed:", error);
+    setGoogleMessage("Could not remove the Google connection. Please try again.", true);
+  } finally {
+    disconnectGoogleButton.disabled = false;
+  }
+}
+
+function setGoogleMessage(message, isError = false) {
+  googleMessage.textContent = message;
+  googleMessage.classList.toggle("is-error", Boolean(message && isError));
 }

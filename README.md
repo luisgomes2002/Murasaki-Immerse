@@ -17,6 +17,7 @@ Extensão para Chrome que registra automaticamente o tempo de imersão em idioma
 2. Na primeira abertura, adicione pelo menos um idioma nativo e selecione **Save & start tracking**.
 3. Assista a um vídeo em uma página `youtube.com/watch`.
 4. Abra o popup novamente para consultar as estatísticas. Use o ícone de configurações para editar os idiomas nativos ou administrar backups.
+5. Se quiser melhorar a identificação de vídeos cujo idioma não aparece na página, abra as configurações e escolha **Connect Google**. O consentimento é opcional e explica a única permissão solicitada: leitura de metadados de vídeo no YouTube.
 
 Vídeos cujo idioma não puder ser identificado não são contabilizados. A detecção usa informações fornecidas pelo YouTube e pode não refletir perfeitamente o idioma falado em todos os vídeos.
 
@@ -36,11 +37,13 @@ O arquivo deve ser um backup criado pelo Murasaki Immerse. A importação aceita
 | --- | --- |
 | `storage` | Guarda histórico, idiomas nativos e cache de idiomas localmente. |
 | `downloads` | Salva o backup JSON solicitado por você. |
-| `identity` | Tenta obter um token do Google apenas para o fallback de detecção pela YouTube Data API. |
+| `identity` | Após você clicar em **Connect Google**, obtém um token OAuth para o fallback de detecção pela YouTube Data API. |
 | `*://*.youtube.com/*` | Observa o player nas páginas do YouTube para registrar o tempo de reprodução. |
 | `https://www.googleapis.com/*` | Consulta metadados do vídeo somente quando os métodos locais de detecção não bastam. |
 
-A extensão não altera região, preferências ou cookies do YouTube. O histórico de imersão é mantido por até 90 dias e o cache de idiomas por até 500 vídeos.
+A extensão não altera região, preferências ou cookies do YouTube. O botão **Disconnect** remove a autorização em cache do Chrome; ele não apaga seu histórico local. O histórico de imersão é mantido por até 90 dias e o cache de idiomas por até 500 vídeos.
+
+Leia a [política de privacidade atual](PRIVACY.md) e o [plano para uma futura sincronização com backend](FUTURE_BACKEND_AND_PRIVACY.md). A versão atual não envia dados de uso a nenhum servidor.
 
 ## Desenvolvimento
 

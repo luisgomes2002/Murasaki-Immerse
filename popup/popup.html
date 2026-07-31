@@ -123,6 +123,25 @@
           <p id="backup-message" class="backup-message" role="status"></p>
           <input id="backup-file-input" type="file" accept="application/json,.json" hidden />
         </section>
+
+        <section class="google-section" aria-labelledby="google-title">
+          <h3 id="google-title" class="settings-kicker">Google connection</h3>
+          <p class="google-description">
+            Optional. Connect Google so Murasaki can use YouTube's read-only
+            video metadata when it cannot determine a video's language locally.
+          </p>
+          <p class="privacy-notice">
+            Your immersion history stays in this browser. We do not collect your
+            Google email, password, or YouTube activity, and we do not send your
+            time data to a server.
+          </p>
+          <div class="google-actions">
+            <span id="google-connection-status" class="google-status" role="status">Checking connection…</span>
+            <button id="connect-google" class="backup-button backup-button-primary" type="button">Connect Google</button>
+            <button id="disconnect-google" class="backup-button hidden" type="button">Disconnect</button>
+          </div>
+          <p id="google-message" class="backup-message" role="status"></p>
+        </section>
       </section>
 
       <main id="dashboard">

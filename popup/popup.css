@@ -130,3 +130,10 @@ body {
 .backup-button:disabled { cursor: wait; opacity: .65; }
 .backup-message { min-height: 14px; color: #86efac; font-size: 10.5px; }
 .backup-message.is-error { color: #fca5a5; }
+
+.google-section { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 13px; border-top: 1px solid var(--border); }
+.google-description, .privacy-notice { color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.privacy-notice { padding: 8px; border: 1px solid rgba(167, 139, 250, .22); border-radius: var(--radius-sm); color: var(--text-secondary); background: rgba(167, 139, 250, .07); }
+.google-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.google-status { flex: 1 1 120px; color: var(--text-muted); font-size: 10.5px; }
+.google-status.is-connected { color: #86efac; }
