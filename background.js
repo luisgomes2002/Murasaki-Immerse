@@ -91,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // content script only ever makes non-interactive requests while detecting
     // a video's language, so watching a video cannot trigger a sign-in prompt.
     case 'CONNECT_GOOGLE':
-      getAuthToken(true)
+      connectGoogleAuth()
         .then(() => sendResponse({ connected: true }))
         .catch(err => sendResponse({ error: err.message }));
       return true;
@@ -151,6 +151,14 @@ async function getAuthToken(interactive = true) {
       resolve(token);
     });
   });
+}
+
+/** Starts an explicit login without reusing a failed/stale OAuth attempt. */
+async function connectGoogleAuth() {
+  if (chrome.identity.clearAllCachedAuthTokens) {
+    await chrome.identity.clearAllCachedAuthTokens();
+  }
+  return getAuthToken(true);
 }
 
 

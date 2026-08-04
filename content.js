@@ -12,8 +12,9 @@
   let accumulatedSeconds = 0;
   let timerInterval = null;
   let isPlaying = false;
+  let languageDetectionPending = false;
 
-  const FLUSH_INTERVAL = 5; // envia a cada 5 segundos de play contínuo
+  const FLUSH_INTERVAL = 1; // envia desde o primeiro segundo assistido
 
   // ---------- Helpers ----------
 
@@ -29,10 +30,19 @@
   // ---------- Cache de idioma (via chrome.storage.local direto) ----------
 
   const LANG_CACHE_KEY = 'immersion_lang_cache';
+  const LANG_CACHE_VERSION_KEY = 'immersion_lang_cache_version';
+  const LANG_CACHE_VERSION = 2;
 
   async function getCachedLanguage(videoId) {
     try {
-      const result = await chrome.storage.local.get(LANG_CACHE_KEY);
+      const result = await chrome.storage.local.get([LANG_CACHE_KEY, LANG_CACHE_VERSION_KEY]);
+      if (result[LANG_CACHE_VERSION_KEY] !== LANG_CACHE_VERSION) {
+        await chrome.storage.local.set({
+          [LANG_CACHE_KEY]: {},
+          [LANG_CACHE_VERSION_KEY]: LANG_CACHE_VERSION
+        });
+        return null;
+      }
       const cache = result[LANG_CACHE_KEY] || {};
       return cache[videoId] || null;
     } catch {
@@ -68,25 +78,23 @@
   function detectLanguageDOM() {
     // O idioma do documento é a interface do YouTube, não necessariamente o
     // áudio do vídeo; por isso ele não é usado para contabilizar imersão.
-    // 1. Procura track de legenda ativo no <video>.
-    const video = document.querySelector('video');
-    if (video && video.textTracks) {
-      for (let i = 0; i < video.textTracks.length; i++) {
-        const track = video.textTracks[i];
-        if (track.mode === 'showing' && track.language) {
-          return track.language.slice(0, 2).toLowerCase();
-        }
-      }
-    }
-
-    // 2. Tenta os metadados de idioma do próprio vídeo, quando disponíveis.
+    // Legendas não são usadas como idioma do áudio: elas podem estar
+    // traduzidas para o alemão, português ou qualquer preferência do usuário.
+    // 1. Tenta os metadados de idioma do próprio vídeo, quando disponíveis.
     const languageMeta = document.querySelector('meta[itemprop="inLanguage"]');
     const metadataLanguage = languageMeta?.getAttribute('content');
     if (metadataLanguage && metadataLanguage.length >= 2) {
       return metadataLanguage.slice(0, 2).toLowerCase();
     }
 
-    // 3. Heurística por script detection no título
+    for (const script of document.scripts) {
+      const text = script.textContent || '';
+      if (!text.includes('defaultAudioLanguage')) continue;
+      const audioMatch = text.match(/"defaultAudioLanguage"\s*:\s*"([a-zA-Z-]+)"/);
+      if (audioMatch) return audioMatch[1].toLowerCase().split('-')[0];
+    }
+
+    // 2. Heurística pelo sistema de escrita do título.
     const title = document.querySelector('h1.ytd-watch-metadata yt-formatted-string, h1 yt-formatted-string');
     if (title) {
       const text = title.textContent || '';
@@ -168,7 +176,6 @@
     }
 
     // Nada funcionou
-    await setCachedLanguage(videoId, 'unknown');
     return 'unknown';
   }
 
@@ -182,6 +189,17 @@
       if (!isPlaying) return;
 
       accumulatedSeconds++;
+
+      if ((!currentLanguage || currentLanguage === 'unknown') &&
+          accumulatedSeconds % 3 === 0 && !languageDetectionPending) {
+        languageDetectionPending = true;
+        const detectingVideoId = currentVideoId;
+        detectLanguage(detectingVideoId)
+          .then(language => {
+            if (currentVideoId === detectingVideoId && language !== 'unknown') currentLanguage = language;
+          })
+          .finally(() => { languageDetectionPending = false; });
+      }
 
       // Flush a cada FLUSH_INTERVAL segundos
       if (accumulatedSeconds >= FLUSH_INTERVAL && accumulatedSeconds % FLUSH_INTERVAL === 0) {
@@ -203,7 +221,7 @@
    */
   function flushTime() {
     const seconds = accumulatedSeconds;
-    if (seconds <= 0 || !currentLanguage) return;
+    if (seconds <= 0 || !currentLanguage || currentLanguage === 'unknown') return;
 
     accumulatedSeconds = 0;
 
@@ -241,7 +259,9 @@
     currentLanguage = null;
 
     if (videoId) {
-      currentLanguage = await detectLanguage(videoId);
+      const detectedLanguage = await detectLanguage(videoId);
+      if (currentVideoId !== videoId) return;
+      currentLanguage = detectedLanguage;
 
       // Se o player já estiver tocando, inicia o timer
       const video = document.querySelector('video');
@@ -268,6 +288,12 @@
       video.addEventListener('play', () => {
         if (!currentVideoId) return;
         startTimer();
+        if (!currentLanguage || currentLanguage === 'unknown') {
+          const detectingVideoId = currentVideoId;
+          detectLanguage(detectingVideoId).then(language => {
+            if (currentVideoId === detectingVideoId && language !== 'unknown') currentLanguage = language;
+          });
+        }
       });
 
       video.addEventListener('pause', () => {

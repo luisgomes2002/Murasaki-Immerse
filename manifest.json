@@ -4,10 +4,7 @@
   "version": "1.0.0",
   "description": "Track your language immersion time on YouTube automatically",
   "permissions": ["storage", "identity", "downloads"],
-  "host_permissions": [
-    "https://www.googleapis.com/*",
-    "*://*.youtube.com/*"
-  ],
+  "host_permissions": ["https://www.googleapis.com/*", "*://*.youtube.com/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -32,7 +29,7 @@
     "128": "icons/icon-128.png"
   },
   "oauth2": {
-    "client_id": "784369495899-sk0c8onathhkr66hlbrnpi1u7o4939c7.apps.googleusercontent.com",
+    "client_id": "892204155433-1m572909r9e6e0bntbkctv90b2anrjq3.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/youtube.readonly"]
   }
 }

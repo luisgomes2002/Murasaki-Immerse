@@ -67,7 +67,12 @@ async function init() {
   renderNativeLanguages();
   setSettingsOpen(!setupComplete);
   await loadGoogleConnectionStatus();
-  if (setupComplete) await loadDashboard();
+  if (setupComplete) {
+    await loadDashboard();
+  }
+  setInterval(() => {
+    if (setupComplete) loadDashboard();
+  }, 1000);
 }
 
 function bindEvents() {
@@ -312,35 +317,38 @@ function renderStats(streak, today, weekData, monthData) {
 function renderLanguages(languages, totalSeconds) {
   const entries = Object.entries(languages).sort((a, b) => b[1] - a[1]);
   if (!entries.length) {
-    languagesList.innerHTML =
-      '<div class="empty-hint">No immersion data yet. Start watching!</div>';
+    if (!languagesList.querySelector(".empty-hint")) {
+      languagesList.innerHTML =
+        '<div class="empty-hint">No immersion data yet. Start watching!</div>';
+    }
     return;
   }
+
   const maxSeconds = entries[0][1];
-  languagesList.innerHTML = entries
-    .map(([code, seconds], index) => {
-      const name = escapeHtml(getLanguageName(code));
-      const barPercent = maxSeconds ? (seconds / maxSeconds) * 100 : 0;
-      const percentage = totalSeconds
-        ? Math.round((seconds / totalSeconds) * 100)
-        : 0;
-      return (
-        '<div class="language-bar" title="' +
-        name +
-        ": " +
-        percentage +
-        '%"><span class="language-name">' +
-        name +
-        '</span><div class="language-track"><div class="language-fill" style="width:' +
-        barPercent +
-        "%;background:" +
-        BAR_COLORS[index % BAR_COLORS.length] +
-        ';"></div></div><span class="language-time">' +
-        formatDuration(seconds) +
-        "</span></div>"
-      );
-    })
-    .join("");
+  const currentCodes = [...languagesList.querySelectorAll(".language-bar")]
+    .map((row) => row.dataset.language);
+  const nextCodes = entries.map(([code]) => code);
+
+  if (currentCodes.join(",") !== nextCodes.join(",")) {
+    languagesList.innerHTML = entries
+      .map(([code]) =>
+        '<div class="language-bar" data-language="' + escapeHtml(code) +
+        '"><span class="language-name"></span><div class="language-track"><div class="language-fill"></div></div><span class="language-time"></span></div>',
+      )
+      .join("");
+  }
+
+  entries.forEach(([code, seconds], index) => {
+    const row = languagesList.querySelector('[data-language="' + CSS.escape(code) + '"]');
+    const name = getLanguageName(code);
+    const barPercent = maxSeconds ? (seconds / maxSeconds) * 100 : 0;
+    const percentage = totalSeconds ? Math.round((seconds / totalSeconds) * 100) : 0;
+    row.title = name + ": " + percentage + "%";
+    row.querySelector(".language-name").textContent = name;
+    row.querySelector(".language-fill").style.cssText =
+      "width:" + barPercent + "%;background:" + BAR_COLORS[index % BAR_COLORS.length];
+    row.querySelector(".language-time").textContent = formatDuration(seconds);
+  });
 }
 
 function renderWeekChart(weekData) {
@@ -376,10 +384,13 @@ function renderWeekChart(weekData) {
 }
 
 function formatDuration(totalSeconds) {
-  if (totalSeconds <= 0) return "0m";
+  if (totalSeconds <= 0) return "0s";
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  return hours > 0 ? hours + "h " + minutes + "m" : minutes + "m";
+  const seconds = Math.floor(totalSeconds % 60);
+  if (hours > 0) return hours + "h " + minutes + "m " + seconds + "s";
+  if (minutes > 0) return minutes + "m " + seconds + "s";
+  return seconds + "s";
 }
 
 function formatDayLabel(dateString) {
@@ -432,11 +443,23 @@ async function connectGoogle() {
     setGoogleMessage("Google connected. Only read-only YouTube video metadata is used when needed.");
   } catch (error) {
     console.error("Google connection failed:", error);
-    setGoogleMessage("Google was not connected. You can keep using local detection.", true);
+    setGoogleMessage(getGoogleAuthErrorMessage(error), true);
   } finally {
     connectGoogleButton.disabled = false;
     connectGoogleButton.textContent = "Connect Google";
   }
+}
+
+function getGoogleAuthErrorMessage(error) {
+  const detail = String(error?.message || "Unknown authorization error.");
+  const extensionId = chrome.runtime.id;
+  if (/authorization page could not be loaded/i.test(detail)) {
+    return "Google could not open the consent page. Sign in to Chrome, allow accounts.google.com, and add your Google account under Google Auth Platform > Audience > Test users. Then reload the extension and try again.";
+  }
+  if (/bad client id|invalid_client|oauth2/i.test(detail)) {
+    return "OAuth client mismatch. Register this Chrome extension ID in Google Cloud: " + extensionId + ". Details: " + detail;
+  }
+  return "Google was not connected: " + detail;
 }
 
 async function disconnectGoogle() {

@@ -78,7 +78,7 @@ body {
 .language-name { width: 83px; overflow: hidden; color: var(--text-secondary); font-size: 11px; font-weight: 550; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .language-track { height: 7px; flex: 1; overflow: hidden; border-radius: 99px; background: var(--bg-tertiary); }
 .language-fill { height: 100%; border-radius: inherit; transition: width .3s ease; }
-.language-time { width: 47px; color: var(--text-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.language-time { width: 65px; color: var(--text-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
 
 .week-chart { display: flex; align-items: flex-end; gap: 6px; height: 74px; padding-top: 2px; }
 .week-bar-wrap { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; height: 100%; }
@@ -115,7 +115,7 @@ body {
 .settings-message.is-error { color: #fca5a5; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .stat-card, .language-bar { animation: fade-in .25s ease both; }
+  .stat-card { animation: fade-in .25s ease both; }
   @keyframes fade-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 }
 
