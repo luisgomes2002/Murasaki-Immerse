@@ -17,6 +17,10 @@ import {
 
 /** @type {Map<number, { language: string, videoId: string }>} */
 const tabState = new Map();
+// chrome.storage.local não oferece incremento atômico. Como o content script
+// pode enviar vários segundos rapidamente, as gravações precisam passar por
+// uma fila para que uma atualização não sobrescreva a anterior.
+let trackingQueue = Promise.resolve();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -24,7 +28,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { language, seconds, videoId } = message.payload;
       const tabId = sender.tab?.id;
 
-      handleTrackTime(language, seconds)
+      enqueueTrackTime(language, seconds)
         .then(result => {
           if (result.tracked && tabId) tabState.set(tabId, { language, videoId });
           sendResponse(result);
@@ -109,6 +113,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
   }
 
+function enqueueTrackTime(language, seconds) {
+  const task = trackingQueue.then(() => handleTrackTime(language, seconds));
+  // Mantém a fila utilizável mesmo se uma gravação falhar.
+  trackingQueue = task.catch(() => {});
+  return task;
+}
+
   return false;
 });
 
@@ -138,19 +149,14 @@ async function handleTrackTime(language, seconds) {
 }
 
 async function getAuthToken(interactive = true) {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive, enableGranularPermissions: true }, (token) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!token) {
-        reject(new Error('Could not obtain the authentication token.'));
-        return;
-      }
-      resolve(token);
-    });
+  const result = await chrome.identity.getAuthToken({
+    interactive
   });
+  const token = typeof result === 'string' ? result : result?.token;
+  if (!token) {
+    throw new Error('Could not obtain the authentication token.');
+  }
+  return token;
 }
 
 /** Starts an explicit login without reusing a failed/stale OAuth attempt. */

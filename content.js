@@ -13,8 +13,9 @@
   let timerInterval = null;
   let isPlaying = false;
   let languageDetectionPending = false;
+  let languageWasManuallySelected = false;
 
-  const FLUSH_INTERVAL = 1; // envia desde o primeiro segundo assistido
+  const FLUSH_INTERVAL = 1;
 
   // ---------- Helpers ----------
 
@@ -80,7 +81,20 @@
     // áudio do vídeo; por isso ele não é usado para contabilizar imersão.
     // Legendas não são usadas como idioma do áudio: elas podem estar
     // traduzidas para o alemão, português ou qualquer preferência do usuário.
-    // 1. Tenta os metadados de idioma do próprio vídeo, quando disponíveis.
+    // 1. Dados expostos pelo bridge no contexto principal da página.
+    const bridgeLanguage = document.documentElement.dataset.murasakiAudioLanguage;
+    if (bridgeLanguage) return bridgeLanguage.toLowerCase().split('-')[0];
+
+    try {
+      const player = document.getElementById('movie_player');
+      const playerResponse = player?.getPlayerResponse?.();
+      const playerLanguage = playerResponse?.videoDetails?.defaultAudioLanguage;
+      if (playerLanguage) return playerLanguage.toLowerCase().split('-')[0];
+    } catch {
+      // O player ainda pode não estar disponível durante a navegação interna.
+    }
+
+    // 2. Tenta os metadados de idioma do próprio vídeo, quando disponíveis.
     const languageMeta = document.querySelector('meta[itemprop="inLanguage"]');
     const metadataLanguage = languageMeta?.getAttribute('content');
     if (metadataLanguage && metadataLanguage.length >= 2) {
@@ -90,7 +104,7 @@
     for (const script of document.scripts) {
       const text = script.textContent || '';
       if (!text.includes('defaultAudioLanguage')) continue;
-      const audioMatch = text.match(/"defaultAudioLanguage"\s*:\s*"([a-zA-Z-]+)"/);
+      const audioMatch = text.match(/(?:\\?["'])defaultAudioLanguage(?:\\?["'])\s*:\s*(?:\\?["'])([a-zA-Z-]+)(?:\\?["'])/);
       if (audioMatch) return audioMatch[1].toLowerCase().split('-')[0];
     }
 
@@ -196,7 +210,9 @@
         const detectingVideoId = currentVideoId;
         detectLanguage(detectingVideoId)
           .then(language => {
-            if (currentVideoId === detectingVideoId && language !== 'unknown') currentLanguage = language;
+            if (currentVideoId === detectingVideoId && !languageWasManuallySelected && language !== 'unknown') {
+              currentLanguage = language;
+            }
           })
           .finally(() => { languageDetectionPending = false; });
       }
@@ -254,6 +270,7 @@
     }
     stopTimer();
 
+    languageWasManuallySelected = false;
     currentVideoId = videoId;
     accumulatedSeconds = 0;
     currentLanguage = null;
@@ -261,7 +278,7 @@
     if (videoId) {
       const detectedLanguage = await detectLanguage(videoId);
       if (currentVideoId !== videoId) return;
-      currentLanguage = detectedLanguage;
+      if (!languageWasManuallySelected) currentLanguage = detectedLanguage;
 
       // Se o player já estiver tocando, inicia o timer
       const video = document.querySelector('video');
@@ -291,7 +308,9 @@
         if (!currentLanguage || currentLanguage === 'unknown') {
           const detectingVideoId = currentVideoId;
           detectLanguage(detectingVideoId).then(language => {
-            if (currentVideoId === detectingVideoId && language !== 'unknown') currentLanguage = language;
+            if (currentVideoId === detectingVideoId && !languageWasManuallySelected && language !== 'unknown') {
+              currentLanguage = language;
+            }
           });
         }
       });
@@ -391,9 +410,43 @@
         }
       }, 300);
     });
+    // Evento oficial usado pelo YouTube nas trocas internas de vídeo.
+    window.addEventListener('yt-navigate-finish', () => {
+      setTimeout(() => {
+        const newVideoId = getVideoId();
+        if (isWatchPage() && newVideoId && newVideoId !== lastVideoId) {
+          lastVideoId = newVideoId;
+          resetForVideo(newVideoId);
+        }
+      }, 0);
+    });
   }
 
   // ---------- Init ----------
+
+  // ---------- Comunicação com o popup ----------
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'GET_CURRENT_VIDEO_LANGUAGE') {
+      sendResponse({ videoId: currentVideoId, language: currentLanguage, isWatchPage: isWatchPage() });
+      return false;
+    }
+
+    if (message?.type === 'SET_CURRENT_VIDEO_LANGUAGE') {
+      const language = String(message.payload?.language || '').toLowerCase().split('-')[0];
+      if (!currentVideoId || !/^[a-z]{2,3}$/.test(language)) {
+        sendResponse({ error: 'Abra um vídeo do YouTube e escolha um idioma válido.' });
+        return false;
+      }
+
+      currentLanguage = language;
+      languageWasManuallySelected = true;
+      flushTime();
+      setCachedLanguage(currentVideoId, language);
+      sendResponse({ videoId: currentVideoId, language });
+      return false;
+    }
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

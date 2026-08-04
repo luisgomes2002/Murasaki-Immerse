@@ -5,7 +5,7 @@ const DATA_KEY = 'immersion_data';
 const LANG_CACHE_KEY = 'immersion_lang_cache';
 const STREAK_KEY = 'immersion_streak';
 const NATIVE_LANGUAGES_KEY = 'immersion_native_languages';
-const MAX_HISTORY_DAYS = 90; // mantém até 90 dias de histórico
+const MAX_HISTORY_DAYS = 5 * 365; // mantém aproximadamente cinco anos de histórico
 
 // ---------- Helpers de data ----------
 

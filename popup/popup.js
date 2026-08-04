@@ -2,23 +2,15 @@
 
 import { LANGUAGES, getLanguageName } from "../utils/languages.js";
 
-const BAR_COLORS = [
-  "#8b5cf6",
-  "#60a5fa",
-  "#34d399",
-  "#fbbf24",
-  "#f87171",
-  "#c084fc",
-  "#fb923c",
-  "#4ade80",
-  "#f472b6",
-  "#a78bfa",
-];
+const BAR_COLOR = "#8b5cf6";
 const dashboard = document.getElementById("dashboard");
 const nativeSettings = document.getElementById("native-settings");
 const settingsToggle = document.getElementById("native-settings-toggle");
 const settingsClose = document.getElementById("native-settings-close");
 const nativeLanguageSelect = document.getElementById("native-language-select");
+const videoLanguageSelect = document.getElementById("video-language-select");
+const saveVideoLanguageButton = document.getElementById("save-video-language");
+const currentVideoLanguage = document.getElementById("current-video-language");
 const nativeLanguageChips = document.getElementById("native-language-chips");
 const nativeLanguageMessage = document.getElementById(
   "native-language-message",
@@ -52,6 +44,7 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   populateNativeLanguageDropdown();
+  populateVideoLanguageDropdown();
   bindEvents();
   try {
     const response = await chrome.runtime.sendMessage({
@@ -69,6 +62,7 @@ async function init() {
   await loadGoogleConnectionStatus();
   if (setupComplete) {
     await loadDashboard();
+    await loadCurrentVideoLanguage();
   }
   setInterval(() => {
     if (setupComplete) loadDashboard();
@@ -77,6 +71,7 @@ async function init() {
 
 function bindEvents() {
   refreshBtn.addEventListener("click", loadDashboard);
+  saveVideoLanguageButton.addEventListener("click", saveCurrentVideoLanguage);
   settingsToggle.addEventListener("click", () => setSettingsOpen(true));
   settingsClose.addEventListener("click", () => {
     if (setupComplete) setSettingsOpen(false);
@@ -110,6 +105,16 @@ function populateNativeLanguageDropdown() {
     option.value = language.code;
     option.textContent = language.name;
     nativeLanguageSelect.appendChild(option);
+  }
+}
+
+function populateVideoLanguageDropdown() {
+  videoLanguageSelect.innerHTML = '<option value="">Choose video language</option>';
+  for (const language of LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = language.code;
+    option.textContent = language.name;
+    videoLanguageSelect.appendChild(option);
   }
 }
 
@@ -280,6 +285,45 @@ function setSettingsMessage(message, isError = false) {
   );
 }
 
+async function getActiveYouTubeTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !/^https?:\/\/([a-z]+\.)?youtube\.com\//i.test(tab.url || "")) return null;
+  return tab;
+}
+
+async function loadCurrentVideoLanguage() {
+  try {
+    const tab = await getActiveYouTubeTab();
+    if (!tab) throw new Error("Open a YouTube video to adjust its language.");
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "GET_CURRENT_VIDEO_LANGUAGE" });
+    if (!response?.videoId) throw new Error("Open a YouTube watch page to adjust its language.");
+    const language = response.language;
+    videoLanguageSelect.value = LANGUAGES.some((item) => item.code === language) ? language : "";
+    currentVideoLanguage.textContent = language && language !== "unknown" ? "Detected: " + getLanguageName(language) + ". Change it if needed." : "Language was not detected. Choose it to start tracking.";
+    saveVideoLanguageButton.disabled = false;
+  } catch (error) {
+    currentVideoLanguage.textContent = error.message || "Reload the YouTube page, then reopen this popup.";
+    saveVideoLanguageButton.disabled = true;
+  }
+}
+
+async function saveCurrentVideoLanguage() {
+  const language = videoLanguageSelect.value;
+  if (!language) {
+    currentVideoLanguage.textContent = "Choose a language first.";
+    return;
+  }
+  try {
+    const tab = await getActiveYouTubeTab();
+    if (!tab) throw new Error("Open a YouTube video first.");
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "SET_CURRENT_VIDEO_LANGUAGE", payload: { language } });
+    if (response?.error) throw new Error(response.error);
+    currentVideoLanguage.textContent = "Tracking this video as " + getLanguageName(language) + ".";
+  } catch (error) {
+    currentVideoLanguage.textContent = error.message || "Could not change the video language.";
+  }
+}
+
 async function loadDashboard() {
   try {
     const [streakResp, todayResp, weekResp, monthResp] = await Promise.all([
@@ -346,10 +390,11 @@ function renderLanguages(languages, totalSeconds) {
     row.title = name + ": " + percentage + "%";
     row.querySelector(".language-name").textContent = name;
     row.querySelector(".language-fill").style.cssText =
-      "width:" + barPercent + "%;background:" + BAR_COLORS[index % BAR_COLORS.length];
+      "width:" + barPercent + "%;background:" + BAR_COLOR;
     row.querySelector(".language-time").textContent = formatDuration(seconds);
   });
 }
+
 
 function renderWeekChart(weekData) {
   if (!weekData.length) {
