@@ -11,30 +11,60 @@
       <header class="header">
         <div>
           <h1>Immersion details</h1>
-          <p id="period-description">All saved immersion data, separated by language.</p>
+          <p id="period-description">
+            All saved immersion data, separated by language.
+          </p>
         </div>
         <button id="refresh" type="button">Refresh</button>
       </header>
       <section class="summary-grid" aria-label="Immersion totals">
-        <article class="summary-card"><span>Today</span><strong id="today-total">0s</strong></article>
-        <article class="summary-card"><span>This week</span><strong id="week-total">0s</strong></article>
-        <article class="summary-card"><span>This month</span><strong id="month-total">0s</strong></article>
+        <article class="summary-card">
+          <span>Today</span><strong id="today-total">0s</strong>
+        </article>
+        <article class="summary-card">
+          <span>This week</span><strong id="week-total">0s</strong>
+        </article>
+        <article class="summary-card">
+          <span>This month</span><strong id="month-total">0s</strong>
+        </article>
       </section>
       <section class="card activity-card">
         <div class="section-heading">
-          <div><h2>Study activity</h2><p id="activity-description">Last 12 weeks</p></div>
+          <div>
+            <h2>Study activity</h2>
+            <p id="activity-description">Last 12 weeks</p>
+          </div>
           <div class="filters">
-            <select id="year-filter" aria-label="Filter by year"><option value="all">All years</option></select>
-            <select id="month-filter" aria-label="Filter by month" disabled><option value="all">All months</option></select>
-            <select id="language-filter" aria-label="Filter activity by language"><option value="all">All languages</option></select>
+            <select id="year-filter" aria-label="Filter by year">
+              <option value="all">All years</option>
+            </select>
+            <select id="month-filter" aria-label="Filter by month" disabled>
+              <option value="all">All months</option>
+            </select>
+            <select
+              id="language-filter"
+              aria-label="Filter activity by language"
+            >
+              <option value="all">All languages</option>
+            </select>
           </div>
         </div>
-        <div class="activity-scroll"><div id="activity-grid" class="activity-grid" aria-label="Study activity heatmap"></div></div>
-        <div class="activity-legend"><span>Less</span><i></i><i></i><i></i><i></i><span>More</span></div>
+        <div class="activity-scroll">
+          <div
+            id="activity-grid"
+            class="activity-grid"
+            aria-label="Study activity heatmap"
+          ></div>
+        </div>
+        <div class="activity-legend">
+          <span>Less</span><i></i><i></i><i></i><i></i><span>More</span>
+        </div>
       </section>
       <section class="card">
         <h2 id="language-heading">Time by language</h2>
-        <div id="language-list" class="language-list"><p class="empty">Loading…</p></div>
+        <div id="language-list" class="language-list">
+          <p class="empty">Loading…</p>
+        </div>
       </section>
       <footer class="page-footer">© 2026. Murasaki Immerse</footer>
     </main>

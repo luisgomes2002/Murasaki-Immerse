@@ -26,7 +26,9 @@ const backupFileInput = document.getElementById("backup-file-input");
 const backupMessage = document.getElementById("backup-message");
 const connectGoogleButton = document.getElementById("connect-google");
 const disconnectGoogleButton = document.getElementById("disconnect-google");
-const googleConnectionStatus = document.getElementById("google-connection-status");
+const googleConnectionStatus = document.getElementById(
+  "google-connection-status",
+);
 const googleMessage = document.getElementById("google-message");
 const todayValue = document.getElementById("today-value");
 const weekValue = document.getElementById("week-value");
@@ -109,7 +111,8 @@ function populateNativeLanguageDropdown() {
 }
 
 function populateVideoLanguageDropdown() {
-  videoLanguageSelect.innerHTML = '<option value="">Choose video language</option>';
+  videoLanguageSelect.innerHTML =
+    '<option value="">Choose video language</option>';
   for (const language of LANGUAGES) {
     const option = document.createElement("option");
     option.value = language.code;
@@ -287,7 +290,8 @@ function setSettingsMessage(message, isError = false) {
 
 async function getActiveYouTubeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id || !/^https?:\/\/([a-z]+\.)?youtube\.com\//i.test(tab.url || "")) return null;
+  if (!tab?.id || !/^https?:\/\/([a-z]+\.)?youtube\.com\//i.test(tab.url || ""))
+    return null;
   return tab;
 }
 
@@ -295,14 +299,23 @@ async function loadCurrentVideoLanguage() {
   try {
     const tab = await getActiveYouTubeTab();
     if (!tab) throw new Error("Open a YouTube video to adjust its language.");
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "GET_CURRENT_VIDEO_LANGUAGE" });
-    if (!response?.videoId) throw new Error("Open a YouTube watch page to adjust its language.");
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: "GET_CURRENT_VIDEO_LANGUAGE",
+    });
+    if (!response?.videoId)
+      throw new Error("Open a YouTube watch page to adjust its language.");
     const language = response.language;
-    videoLanguageSelect.value = LANGUAGES.some((item) => item.code === language) ? language : "";
-    currentVideoLanguage.textContent = language && language !== "unknown" ? "Detected: " + getLanguageName(language) + ". Change it if needed." : "Language was not detected. Choose it to start tracking.";
+    videoLanguageSelect.value = LANGUAGES.some((item) => item.code === language)
+      ? language
+      : "";
+    currentVideoLanguage.textContent =
+      language && language !== "unknown"
+        ? "Detected: " + getLanguageName(language) + ". Change it if needed."
+        : "Language was not detected. Choose it to start tracking.";
     saveVideoLanguageButton.disabled = false;
   } catch (error) {
-    currentVideoLanguage.textContent = error.message || "Reload the YouTube page, then reopen this popup.";
+    currentVideoLanguage.textContent =
+      error.message || "Reload the YouTube page, then reopen this popup.";
     saveVideoLanguageButton.disabled = true;
   }
 }
@@ -316,11 +329,16 @@ async function saveCurrentVideoLanguage() {
   try {
     const tab = await getActiveYouTubeTab();
     if (!tab) throw new Error("Open a YouTube video first.");
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "SET_CURRENT_VIDEO_LANGUAGE", payload: { language } });
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: "SET_CURRENT_VIDEO_LANGUAGE",
+      payload: { language },
+    });
     if (response?.error) throw new Error(response.error);
-    currentVideoLanguage.textContent = "Tracking this video as " + getLanguageName(language) + ".";
+    currentVideoLanguage.textContent =
+      "Tracking this video as " + getLanguageName(language) + ".";
   } catch (error) {
-    currentVideoLanguage.textContent = error.message || "Could not change the video language.";
+    currentVideoLanguage.textContent =
+      error.message || "Could not change the video language.";
   }
 }
 
@@ -369,24 +387,31 @@ function renderLanguages(languages, totalSeconds) {
   }
 
   const maxSeconds = entries[0][1];
-  const currentCodes = [...languagesList.querySelectorAll(".language-bar")]
-    .map((row) => row.dataset.language);
+  const currentCodes = [...languagesList.querySelectorAll(".language-bar")].map(
+    (row) => row.dataset.language,
+  );
   const nextCodes = entries.map(([code]) => code);
 
   if (currentCodes.join(",") !== nextCodes.join(",")) {
     languagesList.innerHTML = entries
-      .map(([code]) =>
-        '<div class="language-bar" data-language="' + escapeHtml(code) +
-        '"><span class="language-name"></span><div class="language-track"><div class="language-fill"></div></div><span class="language-time"></span></div>',
+      .map(
+        ([code]) =>
+          '<div class="language-bar" data-language="' +
+          escapeHtml(code) +
+          '"><span class="language-name"></span><div class="language-track"><div class="language-fill"></div></div><span class="language-time"></span></div>',
       )
       .join("");
   }
 
   entries.forEach(([code, seconds], index) => {
-    const row = languagesList.querySelector('[data-language="' + CSS.escape(code) + '"]');
+    const row = languagesList.querySelector(
+      '[data-language="' + CSS.escape(code) + '"]',
+    );
     const name = getLanguageName(code);
     const barPercent = maxSeconds ? (seconds / maxSeconds) * 100 : 0;
-    const percentage = totalSeconds ? Math.round((seconds / totalSeconds) * 100) : 0;
+    const percentage = totalSeconds
+      ? Math.round((seconds / totalSeconds) * 100)
+      : 0;
     row.title = name + ": " + percentage + "%";
     row.querySelector(".language-name").textContent = name;
     row.querySelector(".language-fill").style.cssText =
@@ -394,7 +419,6 @@ function renderLanguages(languages, totalSeconds) {
     row.querySelector(".language-time").textContent = formatDuration(seconds);
   });
 }
-
 
 function renderWeekChart(weekData) {
   if (!weekData.length) {
@@ -460,7 +484,9 @@ function escapeHtml(value) {
 
 async function loadGoogleConnectionStatus() {
   try {
-    const response = await chrome.runtime.sendMessage({ type: "GET_GOOGLE_CONNECTION_STATUS" });
+    const response = await chrome.runtime.sendMessage({
+      type: "GET_GOOGLE_CONNECTION_STATUS",
+    });
     if (response?.error) throw new Error(response.error);
     renderGoogleConnectionStatus(Boolean(response?.connected));
   } catch (error) {
@@ -471,7 +497,9 @@ async function loadGoogleConnectionStatus() {
 }
 
 function renderGoogleConnectionStatus(connected) {
-  googleConnectionStatus.textContent = connected ? "Google connected" : "Google not connected";
+  googleConnectionStatus.textContent = connected
+    ? "Google connected"
+    : "Google not connected";
   googleConnectionStatus.classList.toggle("is-connected", connected);
   connectGoogleButton.classList.toggle("hidden", connected);
   disconnectGoogleButton.classList.toggle("hidden", !connected);
@@ -482,10 +510,17 @@ async function connectGoogle() {
   connectGoogleButton.disabled = true;
   connectGoogleButton.textContent = "Connecting…";
   try {
-    const response = await chrome.runtime.sendMessage({ type: "CONNECT_GOOGLE" });
-    if (response?.error || !response?.connected) throw new Error(response?.error || "Google authorization was not completed.");
+    const response = await chrome.runtime.sendMessage({
+      type: "CONNECT_GOOGLE",
+    });
+    if (response?.error || !response?.connected)
+      throw new Error(
+        response?.error || "Google authorization was not completed.",
+      );
     renderGoogleConnectionStatus(true);
-    setGoogleMessage("Google connected. Only read-only YouTube video metadata is used when needed.");
+    setGoogleMessage(
+      "Google connected. Only read-only YouTube video metadata is used when needed.",
+    );
   } catch (error) {
     console.error("Google connection failed:", error);
     setGoogleMessage(getGoogleAuthErrorMessage(error), true);
@@ -502,7 +537,12 @@ function getGoogleAuthErrorMessage(error) {
     return "Google could not open the consent page. Sign in to Chrome, allow accounts.google.com, and add your Google account under Google Auth Platform > Audience > Test users. Then reload the extension and try again.";
   }
   if (/bad client id|invalid_client|oauth2/i.test(detail)) {
-    return "OAuth client mismatch. Register this Chrome extension ID in Google Cloud: " + extensionId + ". Details: " + detail;
+    return (
+      "OAuth client mismatch. Register this Chrome extension ID in Google Cloud: " +
+      extensionId +
+      ". Details: " +
+      detail
+    );
   }
   return "Google was not connected: " + detail;
 }
@@ -511,13 +551,18 @@ async function disconnectGoogle() {
   setGoogleMessage("");
   disconnectGoogleButton.disabled = true;
   try {
-    const response = await chrome.runtime.sendMessage({ type: "DISCONNECT_GOOGLE" });
+    const response = await chrome.runtime.sendMessage({
+      type: "DISCONNECT_GOOGLE",
+    });
     if (response?.error) throw new Error(response.error);
     renderGoogleConnectionStatus(false);
     setGoogleMessage("Google connection removed from this browser.");
   } catch (error) {
     console.error("Google disconnect failed:", error);
-    setGoogleMessage("Could not remove the Google connection. Please try again.", true);
+    setGoogleMessage(
+      "Could not remove the Google connection. Please try again.",
+      true,
+    );
   } finally {
     disconnectGoogleButton.disabled = false;
   }

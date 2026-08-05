@@ -2,7 +2,7 @@
 // Usado para detecção de idioma via API (fallback do DOM scraping).
 // Usa apenas OAuth token, sem API key.
 
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
 /**
  * Obtém o idioma padrão do áudio de um vídeo pela YouTube API.
@@ -15,9 +15,9 @@ export async function fetchVideoLanguage(videoId, accessToken) {
 
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json'
-    }
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
   });
 
   if (!response.ok) return null;
