@@ -453,13 +453,12 @@ function renderWeekChart(weekData) {
 }
 
 function formatDuration(totalSeconds) {
-  if (totalSeconds <= 0) return "0s";
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
-  if (hours > 0) return hours + "h " + minutes + "m " + seconds + "s";
-  if (minutes > 0) return minutes + "m " + seconds + "s";
-  return seconds + "s";
+  const pad = (n) => String(n).padStart(2, "0");
+  if (totalSeconds >= 3600) return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
+  return pad(minutes) + ":" + pad(seconds);
 }
 
 function formatDayLabel(dateString) {

@@ -195,7 +195,7 @@ function formatDuration(totalSeconds) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
-  if (hours) return hours + 'h ' + minutes + 'm ' + seconds + 's';
-  if (minutes) return minutes + 'm ' + seconds + 's';
-  return seconds + 's';
+  const pad = (n) => String(n).padStart(2, '0');
+  if (totalSeconds >= 3600) return pad(hours) + ':' + pad(minutes) + ':' + pad(seconds);
+  return pad(minutes) + ':' + pad(seconds);
 }
