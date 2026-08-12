@@ -16,7 +16,6 @@
   let languageWasManuallySelected = false;
 
   const FLUSH_INTERVAL = 1;
-
   // ---------- Helpers ----------
 
   function getVideoId() {
@@ -195,9 +194,21 @@
 
   // ---------- Timer Engine ----------
 
+  function syncToolbarIcon() {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'SET_VIDEO_PLAYBACK',
+        payload: { isPlaying, language: currentLanguage }
+      }).catch(() => {});
+    } catch {
+      // The extension may have been reloaded.
+    }
+  }
+
   function startTimer() {
     if (timerInterval) return;
     isPlaying = true;
+    syncToolbarIcon();
 
     timerInterval = setInterval(() => {
       if (!isPlaying) return;
@@ -212,6 +223,7 @@
           .then(language => {
             if (currentVideoId === detectingVideoId && !languageWasManuallySelected && language !== 'unknown') {
               currentLanguage = language;
+              syncToolbarIcon();
             }
           })
           .finally(() => { languageDetectionPending = false; });
@@ -226,6 +238,7 @@
 
   function stopTimer() {
     isPlaying = false;
+    syncToolbarIcon();
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
@@ -279,6 +292,7 @@
       const detectedLanguage = await detectLanguage(videoId);
       if (currentVideoId !== videoId) return;
       if (!languageWasManuallySelected) currentLanguage = detectedLanguage;
+      syncToolbarIcon();
 
       // Se o player já estiver tocando, inicia o timer
       const video = document.querySelector('video');
@@ -310,6 +324,7 @@
           detectLanguage(detectingVideoId).then(language => {
             if (currentVideoId === detectingVideoId && !languageWasManuallySelected && language !== 'unknown') {
               currentLanguage = language;
+              syncToolbarIcon();
             }
           });
         }
@@ -441,6 +456,7 @@
 
       currentLanguage = language;
       languageWasManuallySelected = true;
+      syncToolbarIcon();
       flushTime();
       setCachedLanguage(currentVideoId, language);
       sendResponse({ videoId: currentVideoId, language });

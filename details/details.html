@@ -5,81 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Murasaki Immerse — Details</title>
     <link rel="stylesheet" href="details.css" />
+      <script type="module" src="details.js"></script>
   </head>
   <body>
     <main class="container">
       <header class="header">
         <div>
-          <h1>Immersion details</h1>
-          <p id="period-description">
+          <h1 data-i18n="details.title">Immersion details</h1>
+          <p id="period-description" data-i18n="details.description">
             All saved immersion data, separated by language.
           </p>
         </div>
-        <button id="refresh" type="button">Refresh</button>
+        <button id="refresh" type="button" data-i18n="details.refresh">Refresh</button>
       </header>
-      <section class="summary-grid" aria-label="Immersion totals">
+      <section class="summary-grid" aria-label="Immersion totals" data-i18n-aria-label="details.totals">
         <article class="summary-card">
-          <span>Today</span><strong id="today-total">0s</strong>
+          <span data-i18n="details.today">Today</span><strong id="today-total">0s</strong>
         </article>
         <article class="summary-card">
-          <span>This week</span><strong id="week-total">0s</strong>
+          <span data-i18n="details.week">This week</span><strong id="week-total">0s</strong>
         </article>
         <article class="summary-card">
-          <span>This month</span><strong id="month-total">0s</strong>
+          <span data-i18n="details.month">This month</span><strong id="month-total">0s</strong>
         </article>
       </section>
-      <section class="insights-grid" aria-label="Study insights">
+      <section class="insights-grid" aria-label="Study insights" data-i18n-aria-label="details.insights">
         <article class="card goal-card">
           <div class="section-heading compact-heading">
             <div>
-              <h2>Daily goal</h2>
+              <h2 data-i18n="details.dailyGoal">Daily goal</h2>
               <p id="goal-progress-label">0s of 1h</p>
             </div>
             <label class="goal-control">
-              <span>Minutes</span>
+              <span data-i18n="details.minutes">Minutes</span>
               <input id="daily-goal-minutes" type="number" min="5" max="1440" step="5" value="60" />
             </label>
           </div>
           <div class="goal-track" aria-hidden="true"><div id="goal-progress-bar" class="goal-progress"></div></div>
-          <button id="save-daily-goal" class="secondary-button" type="button">Save goal</button>
+          <button id="save-daily-goal" class="secondary-button" type="button" data-i18n="details.saveGoal">Save goal</button>
         </article>
         <article class="card insight-card">
-          <span>Active days</span><strong id="active-days-value">0</strong><small>in the last 30 days</small>
+          <span data-i18n="details.activeDays">Active days</span><strong id="active-days-value">0</strong><small data-i18n="details.last30">in the last 30 days</small>
         </article>
         <article class="card insight-card">
-          <span>Week comparison</span><strong id="week-change-value">—</strong><small id="week-change-detail">vs. previous 7 days</small>
+          <span data-i18n="details.weekComparison">Week comparison</span><strong id="week-change-value">—</strong><small id="week-change-detail" data-i18n="details.previous7">vs. previous 7 days</small>
         </article>
         <article class="card insight-card">
-          <span>Average active day</span><strong id="average-day-value">0s</strong><small>in the last 30 days</small>
+          <span data-i18n="details.averageDay">Average active day</span><strong id="average-day-value">0s</strong><small data-i18n="details.last30">in the last 30 days</small>
         </article>
       </section>
       <section class="card trend-card">
         <div class="section-heading compact-heading">
           <div>
-            <h2>14-day trend</h2>
-            <p id="trend-description">Daily immersion time</p>
+            <h2 data-i18n="details.trend">14-day trend</h2>
+            <p id="trend-description" data-i18n="details.dailyTime">Daily immersion time</p>
           </div>
         </div>
-        <div id="trend-chart" class="trend-chart" aria-label="Immersion time in the last 14 days"></div>
+        <div id="trend-chart" class="trend-chart" aria-label="Immersion time in the last 14 days" data-i18n-aria-label="details.trendLabel"></div>
       </section>
       <section class="card activity-card">
         <div class="section-heading">
           <div>
-            <h2>Study activity</h2>
-            <p id="activity-description">Last 12 weeks</p>
+            <h2 data-i18n="details.activity">Study activity</h2>
+            <p id="activity-description" data-i18n="details.last12">Last 12 weeks</p>
           </div>
           <div class="filters">
-            <select id="year-filter" aria-label="Filter by year">
-              <option value="all">All years</option>
+            <select id="year-filter" aria-label="Filter by year" data-i18n-aria-label="details.yearFilter">
+              <option value="all" data-i18n="details.allYears">All years</option>
             </select>
-            <select id="month-filter" aria-label="Filter by month" disabled>
-              <option value="all">All months</option>
+            <select id="month-filter" aria-label="Filter by month" data-i18n-aria-label="details.monthFilter" disabled>
+              <option value="all" data-i18n="details.allMonths">All months</option>
             </select>
             <select
               id="language-filter"
-              aria-label="Filter activity by language"
+              aria-label="Filter activity by language" data-i18n-aria-label="details.languageFilter"
             >
-              <option value="all">All languages</option>
+              <option value="all" data-i18n="details.allLanguages">All languages</option>
             </select>
           </div>
         </div>
@@ -87,21 +88,20 @@
           <div
             id="activity-grid"
             class="activity-grid"
-            aria-label="Study activity heatmap"
+            aria-label="Study activity heatmap" data-i18n-aria-label="details.heatmap"
           ></div>
         </div>
         <div class="activity-legend">
-          <span>Less</span><i></i><i></i><i></i><i></i><span>More</span>
+          <span data-i18n="details.less">Less</span><i></i><i></i><i></i><i></i><span data-i18n="details.more">More</span>
         </div>
       </section>
       <section class="card">
-        <h2 id="language-heading">Time by language</h2>
+        <h2 id="language-heading" data-i18n="details.timeByLanguage">Time by language</h2>
         <div id="language-list" class="language-list">
-          <p class="empty">Loading…</p>
+          <p class="empty" data-i18n="details.loading">Loading…</p>
         </div>
       </section>
       <footer class="page-footer">© 2026. Murasaki Immerse</footer>
     </main>
-    <script type="module" src="details.js"></script>
   </body>
 </html>

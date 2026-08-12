@@ -1,10 +1,19 @@
 import {
+  initializeI18n,
+  applyTranslations,
+  getLanguageDisplayName,
+  t,
+} from "../utils/i18n.js";
+
+import {
   DEFAULT_DAILY_GOAL_SECONDS,
   getDailyGoal,
   setDailyGoal,
+  getUiLanguagePreference,
 } from "../utils/storage.js";
 
-const languageNames = new Intl.DisplayNames([navigator.language], { type: 'language' });
+initializeI18n(await getUiLanguagePreference());
+applyTranslations();
 
 const languageList = document.getElementById('language-list');
 const refreshButton = document.getElementById('refresh');
@@ -61,7 +70,7 @@ async function loadDetails() {
     renderPeriod(data);
   } catch (error) {
     console.error('Could not load language totals:', error);
-    languageList.innerHTML = '<p class="empty">Could not load details.</p>';
+    languageList.innerHTML = '<p class="empty">' + t('details.loadFailed') + '</p>';
   }
 }
 
@@ -74,10 +83,10 @@ function populateLanguageFilter(data) {
   });
 
   const options = [...languages].sort().map((language) => {
-    const name = languageNames.of(language) || language;
+    const name = getLanguageDisplayName(language);
     return '<option value="' + language + '">' + name + '</option>';
   });
-  languageFilter.innerHTML = '<option value="all">All languages</option>' + options.join('');
+  languageFilter.innerHTML = '<option value="all">' + t('details.allLanguages') + '</option>' + options.join('');
   languageFilter.value = languages.has(selectedLanguage) ? selectedLanguage : 'all';
 }
 
@@ -87,7 +96,7 @@ function populateYearFilter(data) {
   years.add(String(new Date().getFullYear()));
 
   const options = [...years].sort().reverse().map((year) => '<option value="' + year + '">' + year + '</option>');
-  yearFilter.innerHTML = '<option value="all">All years</option>' + options.join('');
+  yearFilter.innerHTML = '<option value="all">' + t('details.allYears') + '</option>' + options.join('');
   yearFilter.value = years.has(selectedYear) ? selectedYear : 'all';
 }
 
@@ -99,15 +108,15 @@ function populateMonthFilter() {
   const months = Array.from({ length: 12 }, (_, index) => {
     return new Intl.DateTimeFormat(navigator.language, { month: 'long' }).format(new Date(2000, index, 1));
   });
-  monthFilter.innerHTML = '<option value="all">All months</option>' + months.map((month, index) => '<option value="' + (index + 1) + '">' + month + '</option>').join('');
+  monthFilter.innerHTML = '<option value="all">' + t('details.allMonths') + '</option>' + months.map((month, index) => '<option value="' + (index + 1) + '">' + month + '</option>').join('');
   monthFilter.value = hasYear && Number(selectedMonth) >= 1 && Number(selectedMonth) <= 12 ? selectedMonth : 'all';
 }
 
 function renderPeriod(data) {
   const entries = Object.entries(data).filter(([date]) => matchesSelectedPeriod(date));
   const label = getSelectedPeriodLabel();
-  periodDescription.textContent = label + ', separated by language.';
-  languageHeading.textContent = 'Time by language — ' + label;
+  periodDescription.textContent = t('details.periodDescription', { period: label });
+  languageHeading.textContent = t('details.timeByLanguagePeriod', { period: label });
   renderLanguageTotals(entries);
   renderActivity(data, languageFilter.value);
 }
@@ -121,14 +130,14 @@ function renderLanguageTotals(entries) {
   });
   const languages = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   if (!languages.length) {
-    languageList.innerHTML = '<p class="empty">No immersion data in this period.</p>';
+    languageList.innerHTML = '<p class="empty">' + t('details.noDataPeriod') + '</p>';
     return;
   }
   const maxSeconds = languages[0][1];
   languageList.innerHTML = languages.map(() => '<div class="language-row"><span class="language-name"></span><div class="track"><div class="fill"></div></div><span class="time"></span></div>').join('');
   languages.forEach(([code, seconds], index) => {
     const row = languageList.children[index];
-    row.querySelector('.language-name').textContent = languageNames.of(code) || code;
+    row.querySelector('.language-name').textContent = getLanguageDisplayName(code);
     row.querySelector('.fill').style.width = ((seconds / maxSeconds) * 100) + '%';
     row.querySelector('.time').textContent = formatDuration(seconds);
   });
@@ -141,7 +150,7 @@ function matchesSelectedPeriod(date) {
 }
 
 function getSelectedPeriodLabel() {
-  if (yearFilter.value === 'all') return 'All saved history';
+  if (yearFilter.value === 'all') return t('details.allHistory');
   if (monthFilter.value === 'all') return yearFilter.value;
   const date = new Date(Number(yearFilter.value), Number(monthFilter.value) - 1, 1);
   return new Intl.DateTimeFormat(navigator.language, { month: 'long', year: 'numeric' }).format(date);
@@ -170,18 +179,18 @@ function renderInsights(data) {
     ? activeDays.reduce((total, day) => total + day.seconds, 0) / activeDays.length
     : 0;
 
-  goalProgressLabel.textContent = formatDuration(todaySeconds) + " of " + formatDuration(dailyGoalSeconds) + " (" + progress + "%)";
+  goalProgressLabel.textContent = t('details.goalProgress', { current: formatDuration(todaySeconds), goal: formatDuration(dailyGoalSeconds), progress });
   goalProgressBar.style.width = progress + "%";
   activeDaysValue.textContent = activeDays.length;
   averageDayValue.textContent = formatDuration(averageActiveDay);
 
   if (previousWeekTotal === 0) {
-    weekChangeValue.textContent = currentWeekTotal > 0 ? "New" : "—";
-    weekChangeDetail.textContent = currentWeekTotal > 0 ? "first active week" : "no activity yet";
+    weekChangeValue.textContent = currentWeekTotal > 0 ? t('details.new') : '—';
+    weekChangeDetail.textContent = currentWeekTotal > 0 ? t('details.firstActiveWeek') : t('details.noActivity');
   } else {
     const change = Math.round(((currentWeekTotal - previousWeekTotal) / previousWeekTotal) * 100);
     weekChangeValue.textContent = (change > 0 ? "+" : "") + change + "%";
-    weekChangeDetail.textContent = formatDuration(Math.abs(currentWeekTotal - previousWeekTotal)) + (change >= 0 ? " more" : " less") + " than previous 7 days";
+    weekChangeDetail.textContent = change >= 0 ? t('details.moreThanPrevious', { time: formatDuration(Math.abs(currentWeekTotal - previousWeekTotal)) }) : t('details.lessThanPrevious', { time: formatDuration(Math.abs(currentWeekTotal - previousWeekTotal)) });
   }
 
   renderTrend(getRecentDayEntries(data, 14).reverse());
@@ -239,7 +248,7 @@ function getActivityDates() {
     start = new Date(today);
     start.setDate(today.getDate() - 83);
     end = today;
-    activityDescription.textContent = 'Last 12 weeks';
+    activityDescription.textContent = t('details.last12');
   } else {
     const year = Number(yearFilter.value);
     const month = monthFilter.value === 'all' ? null : Number(monthFilter.value);

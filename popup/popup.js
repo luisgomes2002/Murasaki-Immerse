@@ -1,6 +1,16 @@
 // Murasaki Immerse — popup local do rastreador
 
 import { LANGUAGES, getLanguageName } from "../utils/languages.js";
+import {
+  getUiLanguagePreference,
+  setUiLanguagePreference,
+} from "../utils/storage.js";
+import {
+  applyTranslations,
+  getLanguageDisplayName,
+  initializeI18n,
+  t,
+} from "../utils/i18n.js";
 
 const BAR_COLOR = "#8b5cf6";
 const dashboard = document.getElementById("dashboard");
@@ -38,6 +48,7 @@ const weekChart = document.getElementById("week-chart");
 const lastUpdate = document.getElementById("last-update");
 const localTimeZone = document.getElementById("local-time-zone");
 const refreshBtn = document.getElementById("refresh-btn");
+const appLanguageSelect = document.getElementById("app-language-select");
 
 let nativeLanguages = [];
 let setupComplete = false;
@@ -46,6 +57,10 @@ let pendingImportMode = null;
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
+  const languagePreference = await getUiLanguagePreference();
+  initializeI18n(languagePreference);
+  applyTranslations();
+  appLanguageSelect.value = languagePreference;
   populateNativeLanguageDropdown();
   populateVideoLanguageDropdown();
   bindEvents();
@@ -57,7 +72,7 @@ async function init() {
     nativeLanguages = response?.languages || [];
   } catch (error) {
     console.error("Native language settings failed to load:", error);
-    setSettingsMessage("Could not load your settings. Please try again.", true);
+    setSettingsMessage(t("popup.settingsLoadFailed"), true);
   }
   setupComplete = nativeLanguages.length > 0;
   renderNativeLanguages();
@@ -72,8 +87,14 @@ async function init() {
   }, 1000);
 }
 
+async function saveAppLanguagePreference() {
+  await setUiLanguagePreference(appLanguageSelect.value);
+  window.location.reload();
+}
+
 function bindEvents() {
   refreshBtn.addEventListener("click", loadDashboard);
+  appLanguageSelect.addEventListener("change", saveAppLanguagePreference);
   saveVideoLanguageButton.addEventListener("click", saveCurrentVideoLanguage);
   settingsToggle.addEventListener("click", () => setSettingsOpen(true));
   settingsClose.addEventListener("click", () => {
@@ -102,29 +123,29 @@ function bindEvents() {
 
 function populateNativeLanguageDropdown() {
   nativeLanguageSelect.innerHTML =
-    '<option value="">Select a language</option>';
+    '<option value="">' + t('popup.selectLanguage') + '</option>';
   for (const language of LANGUAGES) {
     const option = document.createElement("option");
     option.value = language.code;
-    option.textContent = language.name;
+    option.textContent = getLanguageDisplayName(language.code, language.name);
     nativeLanguageSelect.appendChild(option);
   }
 }
 
 function populateVideoLanguageDropdown() {
   videoLanguageSelect.innerHTML =
-    '<option value="">Choose video language</option>';
+    '<option value="">' + t('popup.chooseVideoLanguage') + '</option>';
   for (const language of LANGUAGES) {
     const option = document.createElement("option");
     option.value = language.code;
-    option.textContent = language.name;
+    option.textContent = getLanguageDisplayName(language.code, language.name);
     videoLanguageSelect.appendChild(option);
   }
 }
 
 function addNativeLanguage() {
   const language = nativeLanguageSelect.value;
-  if (!language) return setSettingsMessage("Choose a language to add.", true);
+  if (!language) return setSettingsMessage(t("popup.chooseLanguageToAdd"), true);
   if (!nativeLanguages.includes(language)) nativeLanguages.push(language);
   nativeLanguageSelect.value = "";
   setSettingsMessage("");
@@ -134,11 +155,11 @@ function addNativeLanguage() {
 function renderNativeLanguages() {
   if (!nativeLanguages.length) {
     nativeLanguageChips.innerHTML =
-      '<span class="chips-placeholder">No native languages added yet</span>';
+      '<span class="chips-placeholder">' + t('popup.noNativeLanguages') + '</span>';
   } else {
     nativeLanguageChips.innerHTML = nativeLanguages
       .map((language) => {
-        const name = escapeHtml(getLanguageName(language));
+        const name = escapeHtml(getLanguageDisplayName(language, getLanguageName(language)));
         return (
           '<span class="language-chip">' +
           name +
@@ -158,11 +179,11 @@ function renderNativeLanguages() {
 async function saveNativeLanguages() {
   if (!nativeLanguages.length)
     return setSettingsMessage(
-      "Add at least one native language before starting.",
+      t("popup.addNativeLanguage"),
       true,
     );
   saveNativeLanguagesButton.disabled = true;
-  saveNativeLanguagesButton.textContent = "Saving…";
+  saveNativeLanguagesButton.textContent = t("popup.saving");
   try {
     const response = await chrome.runtime.sendMessage({
       type: "SET_NATIVE_LANGUAGES",
@@ -176,10 +197,10 @@ async function saveNativeLanguages() {
     await loadDashboard();
   } catch (error) {
     console.error("Native language settings failed to save:", error);
-    setSettingsMessage("Could not save your settings. Please try again.", true);
+    setSettingsMessage(t("popup.settingsSaveFailed"), true);
   } finally {
     saveNativeLanguagesButton.disabled = false;
-    saveNativeLanguagesButton.textContent = "Save & start tracking";
+    saveNativeLanguagesButton.textContent = t("popup.saveTracking");
   }
 }
 
@@ -210,10 +231,10 @@ async function exportBackup() {
       link.click();
     }
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setBackupMessage("Backup download started.");
+    setBackupMessage(t("popup.backupStarted"));
   } catch (error) {
     console.error("Backup export failed:", error);
-    setBackupMessage("Could not export the backup. Please try again.", true);
+    setBackupMessage(t("popup.backupExportFailed"), true);
   } finally {
     exportBackupButton.disabled = false;
   }
@@ -223,7 +244,7 @@ function chooseBackupFile(mode) {
   if (
     mode === "replace" &&
     !window.confirm(
-      "Replace all current immersion data with this backup? This cannot be undone.",
+      t("popup.replaceConfirm"),
     )
   )
     return;
@@ -236,7 +257,7 @@ async function importBackupFile() {
   const file = backupFileInput.files?.[0];
   if (!file || !pendingImportMode) return;
   if (file.size > 5 * 1024 * 1024) {
-    setBackupMessage("This backup file is too large.", true);
+    setBackupMessage(t("popup.backupTooLarge"), true);
     return;
   }
 
@@ -246,7 +267,7 @@ async function importBackupFile() {
   buttons.forEach((button) => {
     button.disabled = true;
   });
-  setBackupMessage("Importing…");
+  setBackupMessage(t("popup.importing"));
   try {
     const backup = JSON.parse(await file.text());
     const response = await chrome.runtime.sendMessage({
@@ -262,12 +283,12 @@ async function importBackupFile() {
     if (setupComplete) await loadDashboard();
     setBackupMessage(
       mode === "merge"
-        ? "Backup merged successfully."
-        : "Backup imported successfully.",
+        ? t("popup.backupMerged")
+        : t("popup.backupImported"),
     );
   } catch (error) {
     console.error("Backup import failed:", error);
-    setBackupMessage(error.message || "Could not import this backup.", true);
+    setBackupMessage(error.message || t("popup.backupImportFailed"), true);
   } finally {
     buttons.forEach((button) => {
       button.disabled = false;
@@ -317,7 +338,7 @@ async function loadCurrentVideoLanguage() {
       : "";
     currentVideoLanguage.textContent =
       language && language !== "unknown"
-        ? "Detected: " + getLanguageName(language) + ". Change it if needed."
+        ? "Detected: " + getLanguageDisplayName(language, getLanguageName(language)) + ". Change it if needed."
         : "Language was not detected. Choose it to start tracking.";
     saveVideoLanguageButton.disabled = false;
   } catch (error) {
@@ -342,7 +363,7 @@ async function saveCurrentVideoLanguage() {
     });
     if (response?.error) throw new Error(response.error);
     currentVideoLanguage.textContent =
-      "Tracking this video as " + getLanguageName(language) + ".";
+      "Tracking this video as " + getLanguageDisplayName(language, getLanguageName(language)) + ".";
   } catch (error) {
     currentVideoLanguage.textContent =
       error.message || "Could not change the video language.";
@@ -366,10 +387,10 @@ async function loadDashboard() {
     renderLanguages(todayResp?.languages || {}, todayResp?.totalSeconds || 0);
     renderWeekChart(weekResp || []);
     renderLocalTimeZone();
-    lastUpdate.textContent = "Updated " + formatTime(new Date());
+    lastUpdate.textContent = t('popup.updated', { time: formatTime(new Date()) });
   } catch (error) {
     console.error("Dashboard load error:", error);
-    lastUpdate.textContent = "Failed to load";
+    lastUpdate.textContent = t('popup.loadFailed');
   }
 }
 
@@ -381,8 +402,8 @@ function renderLocalTimeZone() {
   const absoluteOffset = Math.abs(offsetMinutes);
   const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, "0");
   const minutes = String(absoluteOffset % 60).padStart(2, "0");
-  localTimeZone.textContent = "Day: " + timeZone + " (UTC" + sign + hours + ":" + minutes + ")";
-  localTimeZone.title = "Immersion is grouped by this browser local time zone.";
+  localTimeZone.textContent = t('popup.dayTimeZone', { timeZone, offset: sign + hours + ':' + minutes });
+  localTimeZone.title = t('popup.timeZoneTitle');
 }
 
 function renderStats(streak, today, weekData, monthData) {
@@ -401,7 +422,7 @@ function renderLanguages(languages, totalSeconds) {
   if (!entries.length) {
     if (!languagesList.querySelector(".empty-hint")) {
       languagesList.innerHTML =
-        '<div class="empty-hint">No immersion data yet. Start watching!</div>';
+        '<div class="empty-hint">' + t('popup.noImmersion') + '</div>';
     }
     return;
   }
@@ -427,7 +448,7 @@ function renderLanguages(languages, totalSeconds) {
     const row = languagesList.querySelector(
       '[data-language="' + CSS.escape(code) + '"]',
     );
-    const name = getLanguageName(code);
+    const name = getLanguageDisplayName(code, getLanguageName(code));
     const barPercent = maxSeconds ? (seconds / maxSeconds) * 100 : 0;
     const percentage = totalSeconds
       ? Math.round((seconds / totalSeconds) * 100)
@@ -442,7 +463,7 @@ function renderLanguages(languages, totalSeconds) {
 
 function renderWeekChart(weekData) {
   if (!weekData.length) {
-    weekChart.innerHTML = '<div class="empty-hint">No data yet</div>';
+    weekChart.innerHTML = '<div class="empty-hint">' + t('popup.noData') + '</div>';
     return;
   }
   const maxSeconds = Math.max(
@@ -545,7 +566,7 @@ async function connectGoogle() {
     setGoogleMessage(getGoogleAuthErrorMessage(error), true);
   } finally {
     connectGoogleButton.disabled = false;
-    connectGoogleButton.textContent = "Connect Google";
+    connectGoogleButton.textContent = t('popup.connect');
   }
 }
 

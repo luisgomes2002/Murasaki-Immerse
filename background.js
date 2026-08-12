@@ -9,6 +9,7 @@ import {
   getMonthHistory,
   getTotalByLanguage,
   getStreak,
+  getDailyGoal,
   getNativeLanguages,
   setNativeLanguages,
   createBackup,
@@ -17,6 +18,68 @@ import {
 
 /** @type {Map<number, { language: string, videoId: string }>} */
 const tabState = new Map();
+const LOGO_ICON_PATH = 'icons/logo.png';
+const PLAY_ICON_PATH = 'icons/playbutton.png';
+
+const iconImageDataCache = new Map();
+
+async function getIconBitmap(path) {
+  if (!iconImageDataCache.has(path)) {
+    iconImageDataCache.set(
+      path,
+      fetch(chrome.runtime.getURL(path))
+        .then(response => response.blob())
+        .then(blob => createImageBitmap(blob))
+    );
+  }
+  return iconImageDataCache.get(path);
+}
+
+async function getToolbarIconImageData(isPlaying) {
+  const canvas = new OffscreenCanvas(32, 32);
+  const context = canvas.getContext("2d");
+
+  if (!isPlaying) {
+    context.drawImage(await getIconBitmap(LOGO_ICON_PATH), 0, 0, 32, 32);
+    return context.getImageData(0, 0, 32, 32);
+  }
+
+  const [playBitmap, today, goalSeconds] = await Promise.all([
+    getIconBitmap(PLAY_ICON_PATH),
+    getToday(),
+    getDailyGoal()
+  ]);
+  const completed = today.totalSeconds > 0 &&
+    today.totalSeconds % goalSeconds === 0;
+  const progress = completed
+    ? 1
+    : (today.totalSeconds % goalSeconds) / goalSeconds;
+
+  context.drawImage(playBitmap, 3, 3, 26, 26);
+  context.beginPath();
+  context.arc(16, 16, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+  context.strokeStyle = "#a78bfa";
+  context.lineWidth = 2.5;
+  context.lineCap = "round";
+  context.stroke();
+  return context.getImageData(0, 0, 32, 32);
+}
+
+async function setTabIcon(tabId, isPlaying) {
+  if (!tabId || !chrome.action?.setIcon) return;
+  try {
+    await chrome.action.setIcon({
+      tabId,
+      imageData: await getToolbarIconImageData(isPlaying)
+    });
+  } catch {
+    chrome.action.setIcon({
+      tabId,
+      path: isPlaying ? PLAY_ICON_PATH : LOGO_ICON_PATH
+    });
+  }
+}
+
 // chrome.storage.local não oferece incremento atômico. Como o content script
 // pode enviar vários segundos rapidamente, as gravações precisam passar por
 // uma fila para que uma atualização não sobrescreva a anterior.
@@ -30,11 +93,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       enqueueTrackTime(language, seconds)
         .then(result => {
-          if (result.tracked && tabId) tabState.set(tabId, { language, videoId });
+          if (result.tracked && tabId) {
+            tabState.set(tabId, { language, videoId });
+            void setTabIcon(tabId, true);
+          }
           sendResponse(result);
         })
         .catch(err => sendResponse({ error: err.message }));
       return true;
+    }
+
+    case 'SET_VIDEO_PLAYBACK': {
+      const tabId = sender.tab?.id;
+      const isPlaying = Boolean(message.payload?.isPlaying);
+      void setTabIcon(tabId, isPlaying);
+      sendResponse({ isPlaying });
+      return false;
     }
 
     case 'GET_TODAY':

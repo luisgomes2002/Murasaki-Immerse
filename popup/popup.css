@@ -103,6 +103,8 @@ body {
 .close-button { width: 22px; height: 22px; border-radius: 6px; font-size: 20px; line-height: 1; }
 .close-button:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .native-settings h2 { font-size: 17px; letter-spacing: -.3px; line-height: 1.25; }
+.interface-language-setting { display: grid; gap: 6px; }
+
 .settings-description { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .native-language-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; }
 .chips-placeholder { align-self: center; color: var(--text-muted); font-size: 11px; }

@@ -6,8 +6,18 @@ const LANG_CACHE_KEY = "immersion_lang_cache";
 const STREAK_KEY = "immersion_streak";
 const NATIVE_LANGUAGES_KEY = "immersion_native_languages";
 const DAILY_GOAL_KEY = "immersion_daily_goal_seconds";
+const UI_LANGUAGE_KEY = "immersion_ui_language";
 export const DEFAULT_DAILY_GOAL_SECONDS = 60 * 60;
 const MAX_HISTORY_DAYS = 5 * 365; // mantém aproximadamente cinco anos de histórico
+
+export async function getUiLanguagePreference() {
+  const result = await chrome.storage.local.get(UI_LANGUAGE_KEY);
+  return result[UI_LANGUAGE_KEY] || "auto";
+}
+
+export async function setUiLanguagePreference(language) {
+  await chrome.storage.local.set({ [UI_LANGUAGE_KEY]: language || "auto" });
+}
 
 // ---------- Helpers de data ----------
 
