@@ -28,6 +28,40 @@
           <span>This month</span><strong id="month-total">0s</strong>
         </article>
       </section>
+      <section class="insights-grid" aria-label="Study insights">
+        <article class="card goal-card">
+          <div class="section-heading compact-heading">
+            <div>
+              <h2>Daily goal</h2>
+              <p id="goal-progress-label">0s of 1h</p>
+            </div>
+            <label class="goal-control">
+              <span>Minutes</span>
+              <input id="daily-goal-minutes" type="number" min="5" max="1440" step="5" value="60" />
+            </label>
+          </div>
+          <div class="goal-track" aria-hidden="true"><div id="goal-progress-bar" class="goal-progress"></div></div>
+          <button id="save-daily-goal" class="secondary-button" type="button">Save goal</button>
+        </article>
+        <article class="card insight-card">
+          <span>Active days</span><strong id="active-days-value">0</strong><small>in the last 30 days</small>
+        </article>
+        <article class="card insight-card">
+          <span>Week comparison</span><strong id="week-change-value">—</strong><small id="week-change-detail">vs. previous 7 days</small>
+        </article>
+        <article class="card insight-card">
+          <span>Average active day</span><strong id="average-day-value">0s</strong><small>in the last 30 days</small>
+        </article>
+      </section>
+      <section class="card trend-card">
+        <div class="section-heading compact-heading">
+          <div>
+            <h2>14-day trend</h2>
+            <p id="trend-description">Daily immersion time</p>
+          </div>
+        </div>
+        <div id="trend-chart" class="trend-chart" aria-label="Immersion time in the last 14 days"></div>
+      </section>
       <section class="card activity-card">
         <div class="section-heading">
           <div>
@@ -68,6 +102,6 @@
       </section>
       <footer class="page-footer">© 2026. Murasaki Immerse</footer>
     </main>
-    <script src="details.js"></script>
+    <script type="module" src="details.js"></script>
   </body>
 </html>

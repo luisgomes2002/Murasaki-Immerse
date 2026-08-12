@@ -36,6 +36,7 @@ const monthValue = document.getElementById("month-value");
 const languagesList = document.getElementById("languages-list");
 const weekChart = document.getElementById("week-chart");
 const lastUpdate = document.getElementById("last-update");
+const localTimeZone = document.getElementById("local-time-zone");
 const refreshBtn = document.getElementById("refresh-btn");
 
 let nativeLanguages = [];
@@ -192,7 +193,13 @@ async function exportBackup() {
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }),
     );
-    const date = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const date =
+      String(now.getFullYear()) +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
     const filename = "murasaki-immerse-backup-" + date + ".json";
     if (chrome.downloads?.download) {
       await chrome.downloads.download({ url, filename, saveAs: true });
@@ -358,11 +365,24 @@ async function loadDashboard() {
     );
     renderLanguages(todayResp?.languages || {}, todayResp?.totalSeconds || 0);
     renderWeekChart(weekResp || []);
+    renderLocalTimeZone();
     lastUpdate.textContent = "Updated " + formatTime(new Date());
   } catch (error) {
     console.error("Dashboard load error:", error);
     lastUpdate.textContent = "Failed to load";
   }
+}
+
+function renderLocalTimeZone() {
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Local browser time";
+  const offsetMinutes = -now.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, "0");
+  const minutes = String(absoluteOffset % 60).padStart(2, "0");
+  localTimeZone.textContent = "Day: " + timeZone + " (UTC" + sign + hours + ":" + minutes + ")";
+  localTimeZone.title = "Immersion is grouped by this browser local time zone.";
 }
 
 function renderStats(streak, today, weekData, monthData) {

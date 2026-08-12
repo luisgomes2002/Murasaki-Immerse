@@ -5,15 +5,29 @@ const DATA_KEY = "immersion_data";
 const LANG_CACHE_KEY = "immersion_lang_cache";
 const STREAK_KEY = "immersion_streak";
 const NATIVE_LANGUAGES_KEY = "immersion_native_languages";
+const DAILY_GOAL_KEY = "immersion_daily_goal_seconds";
+export const DEFAULT_DAILY_GOAL_SECONDS = 60 * 60;
 const MAX_HISTORY_DAYS = 5 * 365; // mantém aproximadamente cinco anos de histórico
 
 // ---------- Helpers de data ----------
 
 /**
- * Retorna a data de hoje no formato ISO (YYYY-MM-DD).
+ * Retorna a data de hoje no fuso local do navegador (YYYY-MM-DD).
  */
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return dateKeyFromLocalDate(new Date());
+}
+
+/**
+ * Converte uma data em uma chave de calendário no fuso local do navegador.
+ * @param {Date} date
+ * @returns {string} YYYY-MM-DD
+ */
+function dateKeyFromLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return year + '-' + month + '-' + day;
 }
 
 /**
@@ -24,7 +38,7 @@ function todayKey() {
 function dateKeyDaysAgo(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
+  return dateKeyFromLocalDate(d);
 }
 
 // ---------- Imersão (tempo por idioma/dia) ----------
@@ -165,6 +179,27 @@ export async function setNativeLanguages(languages) {
   return normalized;
 }
 
+// ---------- Meta diária ----------
+
+function normalizeDailyGoal(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 5 * 60 || value > 24 * 60 * 60) {
+    return DEFAULT_DAILY_GOAL_SECONDS;
+  }
+  return Math.round(value / 60) * 60;
+}
+
+export async function getDailyGoal() {
+  const result = await chrome.storage.local.get(DAILY_GOAL_KEY);
+  return normalizeDailyGoal(result[DAILY_GOAL_KEY]);
+}
+
+export async function setDailyGoal(seconds) {
+  const goal = normalizeDailyGoal(seconds);
+  await chrome.storage.local.set({ [DAILY_GOAL_KEY]: goal });
+  return goal;
+}
+
 // ---------- Backup ----------
 
 const BACKUP_FORMAT = "murasaki-immerse-backup";
@@ -177,6 +212,7 @@ export async function createBackup() {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     nativeLanguages: await getNativeLanguages(),
+    dailyGoalSeconds: await getDailyGoal(),
     immersionData: await loadData(),
   };
 }
@@ -251,6 +287,12 @@ export async function restoreBackup(backup, merge = false) {
   const importedNativeLanguages = normalizeNativeLanguageList(
     backup.nativeLanguages,
   );
+  const importedDailyGoal = Object.prototype.hasOwnProperty.call(
+    backup,
+    "dailyGoalSeconds",
+  )
+    ? normalizeDailyGoal(backup.dailyGoalSeconds)
+    : null;
   const data = merge
     ? mergeImmersionData(await loadData(), importedData)
     : importedData;
@@ -264,12 +306,17 @@ export async function restoreBackup(backup, merge = false) {
     : importedNativeLanguages;
 
   await saveData(data);
-  await chrome.storage.local.set({ [NATIVE_LANGUAGES_KEY]: nativeLanguages });
+  const settings = { [NATIVE_LANGUAGES_KEY]: nativeLanguages };
+  if (importedDailyGoal !== null) {
+    settings[DAILY_GOAL_KEY] = importedDailyGoal;
+  }
+  await chrome.storage.local.set(settings);
 
   return {
     merged: merge,
     nativeLanguages,
     importedDays: Object.keys(importedData).length,
+    dailyGoalSeconds: importedDailyGoal,
   };
 }
 
