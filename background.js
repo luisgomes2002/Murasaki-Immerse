@@ -20,6 +20,8 @@ import {
 const tabState = new Map();
 const LOGO_ICON_PATH = 'icons/logo.png';
 const PLAY_ICON_PATH = 'icons/playbutton.png';
+const PROGRESS_RING_COLOR = '#fde047';
+const PROGRESS_RING_OUTLINE = 'rgba(15, 10, 25, 0.9)';
 
 const iconImageDataCache = new Map();
 
@@ -58,9 +60,12 @@ async function getToolbarIconImageData(isPlaying) {
   context.drawImage(playBitmap, 3, 3, 26, 26);
   context.beginPath();
   context.arc(16, 16, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-  context.strokeStyle = "#a78bfa";
-  context.lineWidth = 2.5;
-  context.lineCap = "round";
+  context.strokeStyle = PROGRESS_RING_OUTLINE;
+  context.lineWidth = 5;
+  context.lineCap = 'round';
+  context.stroke();
+  context.strokeStyle = PROGRESS_RING_COLOR;
+  context.lineWidth = 3;
   context.stroke();
   return context.getImageData(0, 0, 32, 32);
 }
