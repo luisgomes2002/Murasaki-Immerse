@@ -110,7 +110,7 @@
           <div class="backup-actions">
             <button id="export-backup" class="backup-button" type="button" data-i18n="popup.export">Export backup</button>
             <button id="import-backup" class="backup-button" type="button" data-i18n="popup.import">Import & replace</button>
-            <button id="merge-backup" class="backup-button backup-button-primary" type="button" data-i18n="popup.merge">Merge backup</button>
+            <button id="merge-backup" class="backup-button" type="button" data-i18n="popup.merge">Merge backup</button>
           </div>
           <p id="backup-message" class="backup-message" role="status"></p>
           <input id="backup-file-input" type="file" accept="application/json,.json" hidden />
@@ -137,34 +137,35 @@
       </section>
 
       <main id="dashboard">
+        <section class="stats-row" aria-label="Immersion totals" data-i18n-aria-label="popup.totals">
+          <div class="stat-card today-card">
+            <div class="stat-body">
+              <span class="stat-label" data-i18n="popup.today">today</span>
+              <span class="stat-value" id="today-value">0m</span>
+            </div>
+          </div>
+          <div class="stat-card week-card">
+            <div class="stat-body">
+              <span class="stat-label" data-i18n="popup.week">this week</span>
+              <span class="stat-value" id="week-value">0m</span>
+            </div>
+          </div>
+          <div class="stat-card month-card">
+            <div class="stat-body">
+              <span class="stat-label" data-i18n="popup.month">this month</span>
+              <span class="stat-value" id="month-value">0m</span>
+            </div>
+          </div>
+        </section>
+
         <section class="video-language-control" aria-labelledby="video-language-title">
           <div>
             <h2 id="video-language-title" class="section-title" data-i18n="popup.videoTitle">Current video language</h2>
             <p id="current-video-language" class="video-language-status" data-i18n="popup.videoPrompt">Open a YouTube video to adjust its language.</p>
           </div>
           <div class="video-language-picker">
-            <select id="video-language-select" class="language-select" aria-label="Language of the current YouTube video" data-i18n-aria-label="popup.videoSelect" data-i18n-aria-label="popup.videoSelect"></select>
+            <select id="video-language-select" class="language-select" aria-label="Language of the current YouTube video" data-i18n-aria-label="popup.videoSelect"></select>
             <button id="save-video-language" class="add-language-button" type="button" data-i18n="popup.apply">Apply</button>
-          </div>
-        </section>
-        <section class="stats-row" aria-label="Immersion totals" data-i18n-aria-label="popup.totals">
-          <div class="stat-card today-card">
-            <div class="stat-body">
-              <span class="stat-value" id="today-value">0m</span>
-              <span class="stat-label" data-i18n="popup.today">today</span>
-            </div>
-          </div>
-          <div class="stat-card week-card">
-            <div class="stat-body">
-              <span class="stat-value" id="week-value">0m</span>
-              <span class="stat-label" data-i18n="popup.week">this week</span>
-            </div>
-          </div>
-          <div class="stat-card month-card">
-            <div class="stat-body">
-              <span class="stat-value" id="month-value">0m</span>
-              <span class="stat-label" data-i18n="popup.month">this month</span>
-            </div>
           </div>
         </section>
 
@@ -177,14 +178,14 @@
 
         <section class="section" id="week-section">
           <h2 class="section-title" data-i18n="popup.last7Days">Last 7 days</h2>
-          <div id="week-chart" class="week-chart">
+          <div id="week-chart" class="week-chart is-empty">
             <div class="empty-hint" data-i18n="details.loading">Loading...</div>
           </div>
         </section>
 
         <footer class="footer">
           <div class="footer-meta">
-            <a class="details-link" href="../details/details.html" target="_blank" data-i18n="popup.dashboard" data-i18n="popup.dashboard">Dashboard</a>
+            <a class="details-link" href="../details/details.html" target="_blank" data-i18n="popup.dashboard">Dashboard</a>
             <span id="last-update" class="last-update"></span>
             <span id="local-time-zone" class="local-time-zone"></span>
           </div>

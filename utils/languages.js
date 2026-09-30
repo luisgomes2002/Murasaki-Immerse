@@ -1,4 +1,4 @@
-// Murasaki Immerse — Language mappings
+// Murasaki Immerse: Language mappings
 // ISO 639-1 languages, plus common YouTube language codes.
 
 export const LANGUAGES = [

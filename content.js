@@ -1,6 +1,6 @@
-// Murasaki Immerse — Content Script
+// Murasaki Immerse: Content Script
 // Detector de idioma + timer engine para rastrear tempo de imersão no YouTube.
-// IIFE (não module) — injetado diretamente nas páginas do YouTube.
+// IIFE (não module): injetado diretamente nas páginas do YouTube.
 
 (function () {
   'use strict';

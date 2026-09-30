@@ -1,4 +1,4 @@
-// Murasaki Immerse — Service Worker (ES Module)
+// Murasaki Immerse: Service Worker (ES Module)
 // Coordena o rastreamento e as preferências salvas no próprio navegador.
 
 import {

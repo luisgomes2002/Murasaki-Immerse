@@ -1,4 +1,4 @@
-# Política de Privacidade — Murasaki Immerse
+# Política de Privacidade: Murasaki Immerse
 
 _Última atualização: 31 de julho de 2026_
 

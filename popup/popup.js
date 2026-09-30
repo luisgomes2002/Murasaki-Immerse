@@ -1,4 +1,4 @@
-// Murasaki Immerse — popup local do rastreador
+// Murasaki Immerse: popup local do rastreador
 
 import { LANGUAGES, getLanguageName } from "../utils/languages.js";
 import {
@@ -7,12 +7,12 @@ import {
 } from "../utils/storage.js";
 import {
   applyTranslations,
+  compareLanguageCodesByName,
   getLanguageDisplayName,
   initializeI18n,
   t,
 } from "../utils/i18n.js";
 
-const BAR_COLOR = "#8b5cf6";
 const dashboard = document.getElementById("dashboard");
 const nativeSettings = document.getElementById("native-settings");
 const settingsToggle = document.getElementById("native-settings-toggle");
@@ -124,7 +124,7 @@ function bindEvents() {
 function populateNativeLanguageDropdown() {
   nativeLanguageSelect.innerHTML =
     '<option value="">' + t('popup.selectLanguage') + '</option>';
-  for (const language of LANGUAGES) {
+  for (const language of getSortedLanguages()) {
     const option = document.createElement("option");
     option.value = language.code;
     option.textContent = getLanguageDisplayName(language.code, language.name);
@@ -135,12 +135,18 @@ function populateNativeLanguageDropdown() {
 function populateVideoLanguageDropdown() {
   videoLanguageSelect.innerHTML =
     '<option value="">' + t('popup.chooseVideoLanguage') + '</option>';
-  for (const language of LANGUAGES) {
+  for (const language of getSortedLanguages()) {
     const option = document.createElement("option");
     option.value = language.code;
     option.textContent = getLanguageDisplayName(language.code, language.name);
     videoLanguageSelect.appendChild(option);
   }
+}
+
+function getSortedLanguages() {
+  return [...LANGUAGES].sort((first, second) =>
+    compareLanguageCodesByName(first.code, second.code, first.name, second.name),
+  );
 }
 
 function addNativeLanguage() {
@@ -157,16 +163,24 @@ function renderNativeLanguages() {
     nativeLanguageChips.innerHTML =
       '<span class="chips-placeholder">' + t('popup.noNativeLanguages') + '</span>';
   } else {
-    nativeLanguageChips.innerHTML = nativeLanguages
+    nativeLanguageChips.innerHTML = [...nativeLanguages]
+      .sort((first, second) =>
+        compareLanguageCodesByName(
+          first,
+          second,
+          getLanguageName(first),
+          getLanguageName(second),
+        ),
+      )
       .map((language) => {
-        const name = escapeHtml(getLanguageDisplayName(language, getLanguageName(language)));
+        const name = getLanguageDisplayName(language, getLanguageName(language));
         return (
           '<span class="language-chip">' +
-          name +
+          escapeHtml(name) +
           '<button type="button" data-language="' +
           escapeHtml(language) +
-          '" aria-label="Remove ' +
-          name +
+          '" aria-label="' +
+          escapeHtml(t('popup.removeLanguage', { language: name })) +
           '">×</button></span>'
         );
       })
@@ -326,24 +340,26 @@ async function getActiveYouTubeTab() {
 async function loadCurrentVideoLanguage() {
   try {
     const tab = await getActiveYouTubeTab();
-    if (!tab) throw new Error("Open a YouTube video to adjust its language.");
+    if (!tab) throw new Error(t('popup.openVideo'));
     const response = await chrome.tabs.sendMessage(tab.id, {
       type: "GET_CURRENT_VIDEO_LANGUAGE",
     });
     if (!response?.videoId)
-      throw new Error("Open a YouTube watch page to adjust its language.");
+      throw new Error(t('popup.openWatchPage'));
     const language = response.language;
     videoLanguageSelect.value = LANGUAGES.some((item) => item.code === language)
       ? language
       : "";
     currentVideoLanguage.textContent =
       language && language !== "unknown"
-        ? "Detected: " + getLanguageDisplayName(language, getLanguageName(language)) + ". Change it if needed."
-        : "Language was not detected. Choose it to start tracking.";
+        ? t('popup.detectedLanguage', {
+            language: getLanguageDisplayName(language, getLanguageName(language)),
+          })
+        : t('popup.languageNotDetected');
     saveVideoLanguageButton.disabled = false;
   } catch (error) {
     currentVideoLanguage.textContent =
-      error.message || "Reload the YouTube page, then reopen this popup.";
+      error.message || t('popup.reloadYouTube');
     saveVideoLanguageButton.disabled = true;
   }
 }
@@ -351,22 +367,23 @@ async function loadCurrentVideoLanguage() {
 async function saveCurrentVideoLanguage() {
   const language = videoLanguageSelect.value;
   if (!language) {
-    currentVideoLanguage.textContent = "Choose a language first.";
+    currentVideoLanguage.textContent = t('popup.chooseLanguageFirst');
     return;
   }
   try {
     const tab = await getActiveYouTubeTab();
-    if (!tab) throw new Error("Open a YouTube video first.");
+    if (!tab) throw new Error(t('popup.openVideoFirst'));
     const response = await chrome.tabs.sendMessage(tab.id, {
       type: "SET_CURRENT_VIDEO_LANGUAGE",
       payload: { language },
     });
     if (response?.error) throw new Error(response.error);
-    currentVideoLanguage.textContent =
-      "Tracking this video as " + getLanguageDisplayName(language, getLanguageName(language)) + ".";
+    currentVideoLanguage.textContent = t('popup.trackingVideoAs', {
+      language: getLanguageDisplayName(language, getLanguageName(language)),
+    });
   } catch (error) {
     currentVideoLanguage.textContent =
-      error.message || "Could not change the video language.";
+      error.message || t('popup.videoLanguageFailed');
   }
 }
 
@@ -418,7 +435,14 @@ function renderStats(streak, today, weekData, monthData) {
 }
 
 function renderLanguages(languages, totalSeconds) {
-  const entries = Object.entries(languages).sort((a, b) => b[1] - a[1]);
+  const entries = Object.entries(languages).sort(([first], [second]) =>
+    compareLanguageCodesByName(
+      first,
+      second,
+      getLanguageName(first),
+      getLanguageName(second),
+    ),
+  );
   if (!entries.length) {
     if (!languagesList.querySelector(".empty-hint")) {
       languagesList.innerHTML =
@@ -427,7 +451,7 @@ function renderLanguages(languages, totalSeconds) {
     return;
   }
 
-  const maxSeconds = entries[0][1];
+  const maxSeconds = Math.max(...entries.map(([, seconds]) => seconds));
   const currentCodes = [...languagesList.querySelectorAll(".language-bar")].map(
     (row) => row.dataset.language,
   );
@@ -455,14 +479,15 @@ function renderLanguages(languages, totalSeconds) {
       : 0;
     row.title = name + ": " + percentage + "%";
     row.querySelector(".language-name").textContent = name;
-    row.querySelector(".language-fill").style.cssText =
-      "width:" + barPercent + "%;background:" + BAR_COLOR;
+    row.querySelector(".language-fill").style.width = barPercent + "%";
     row.querySelector(".language-time").textContent = formatDuration(seconds);
   });
 }
 
 function renderWeekChart(weekData) {
-  if (!weekData.length) {
+  const isEmpty = !weekData.length || weekData.every((day) => !(day.totalSeconds > 0));
+  weekChart.classList.toggle("is-empty", isEmpty);
+  if (isEmpty) {
     weekChart.innerHTML = '<div class="empty-hint">' + t('popup.noData') + '</div>';
     return;
   }
@@ -475,7 +500,7 @@ function renderWeekChart(weekData) {
     .map((day) => {
       const seconds = day.totalSeconds || 0;
       const label = formatDayLabel(day.date);
-      const height = Math.max(4, (seconds / maxSeconds) * 60);
+      const height = Math.max(4, (seconds / maxSeconds) * 50);
       return (
         '<div class="week-bar-wrap" title="' +
         label +
@@ -503,9 +528,9 @@ function formatDuration(totalSeconds) {
 }
 
 function formatDayLabel(dateString) {
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-    new Date(dateString + "T00:00:00").getDay()
-  ];
+  return new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+    weekday: 'short',
+  }).format(new Date(dateString + 'T00:00:00'));
 }
 
 function formatTime(date) {
@@ -531,15 +556,15 @@ async function loadGoogleConnectionStatus() {
     renderGoogleConnectionStatus(Boolean(response?.connected));
   } catch (error) {
     console.error("Google connection status failed to load:", error);
-    googleConnectionStatus.textContent = "Connection status unavailable";
-    setGoogleMessage("Could not check Google connection status.", true);
+    googleConnectionStatus.textContent = t('popup.connectionUnavailable');
+    setGoogleMessage(t('popup.connectionCheckFailed'), true);
   }
 }
 
 function renderGoogleConnectionStatus(connected) {
   googleConnectionStatus.textContent = connected
-    ? "Google connected"
-    : "Google not connected";
+    ? t('popup.googleConnected')
+    : t('popup.googleNotConnected');
   googleConnectionStatus.classList.toggle("is-connected", connected);
   connectGoogleButton.classList.toggle("hidden", connected);
   disconnectGoogleButton.classList.toggle("hidden", !connected);
@@ -548,19 +573,17 @@ function renderGoogleConnectionStatus(connected) {
 async function connectGoogle() {
   setGoogleMessage("");
   connectGoogleButton.disabled = true;
-  connectGoogleButton.textContent = "Connecting…";
+  connectGoogleButton.textContent = t('popup.connecting');
   try {
     const response = await chrome.runtime.sendMessage({
       type: "CONNECT_GOOGLE",
     });
     if (response?.error || !response?.connected)
       throw new Error(
-        response?.error || "Google authorization was not completed.",
+        response?.error || t('popup.googleAuthorizationFailed'),
       );
     renderGoogleConnectionStatus(true);
-    setGoogleMessage(
-      "Google connected. Only read-only YouTube video metadata is used when needed.",
-    );
+    setGoogleMessage(t('popup.googleConnectedMessage'));
   } catch (error) {
     console.error("Google connection failed:", error);
     setGoogleMessage(getGoogleAuthErrorMessage(error), true);
@@ -596,13 +619,10 @@ async function disconnectGoogle() {
     });
     if (response?.error) throw new Error(response.error);
     renderGoogleConnectionStatus(false);
-    setGoogleMessage("Google connection removed from this browser.");
+    setGoogleMessage(t('popup.googleDisconnectedMessage'));
   } catch (error) {
     console.error("Google disconnect failed:", error);
-    setGoogleMessage(
-      "Could not remove the Google connection. Please try again.",
-      true,
-    );
+    setGoogleMessage(t('popup.googleDisconnectFailed'), true);
   } finally {
     disconnectGoogleButton.disabled = false;
   }

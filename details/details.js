@@ -1,6 +1,7 @@
 import {
   initializeI18n,
   applyTranslations,
+  compareLanguageCodesByName,
   getLanguageDisplayName,
   t,
 } from "../utils/i18n.js";
@@ -82,10 +83,12 @@ function populateLanguageFilter(data) {
     Object.keys(dailyLanguages).forEach((language) => languages.add(language));
   });
 
-  const options = [...languages].sort().map((language) => {
-    const name = getLanguageDisplayName(language);
-    return '<option value="' + language + '">' + name + '</option>';
-  });
+  const options = [...languages]
+    .sort((first, second) => compareLanguageCodesByName(first, second))
+    .map((language) => {
+      const name = getLanguageDisplayName(language);
+      return '<option value="' + language + '">' + name + '</option>';
+    });
   languageFilter.innerHTML = '<option value="all">' + t('details.allLanguages') + '</option>' + options.join('');
   languageFilter.value = languages.has(selectedLanguage) ? selectedLanguage : 'all';
 }
@@ -128,12 +131,13 @@ function renderLanguageTotals(entries) {
       totals[language] = (totals[language] || 0) + Number(seconds || 0);
     });
   });
-  const languages = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const languages = Object.entries(totals).sort(([first], [second]) =>
+    compareLanguageCodesByName(first, second));
   if (!languages.length) {
     languageList.innerHTML = '<p class="empty">' + t('details.noDataPeriod') + '</p>';
     return;
   }
-  const maxSeconds = languages[0][1];
+  const maxSeconds = Math.max(1, ...languages.map(([, seconds]) => seconds));
   languageList.innerHTML = languages.map(() => '<div class="language-row"><span class="language-name"></span><div class="track"><div class="fill"></div></div><span class="time"></span></div>').join('');
   languages.forEach(([code, seconds], index) => {
     const row = languageList.children[index];
@@ -185,7 +189,7 @@ function renderInsights(data) {
   averageDayValue.textContent = formatDuration(averageActiveDay);
 
   if (previousWeekTotal === 0) {
-    weekChangeValue.textContent = currentWeekTotal > 0 ? t('details.new') : '—';
+    weekChangeValue.textContent = currentWeekTotal > 0 ? t('details.new') : '0%';
     weekChangeDetail.textContent = currentWeekTotal > 0 ? t('details.firstActiveWeek') : t('details.noActivity');
   } else {
     const change = Math.round(((currentWeekTotal - previousWeekTotal) / previousWeekTotal) * 100);
@@ -211,6 +215,12 @@ function getRecentDayEntries(data, days, startOffset = 0) {
 }
 
 function renderTrend(days) {
+  const isEmpty = days.every((day) => day.seconds === 0);
+  trendChart.classList.toggle('is-empty', isEmpty);
+  if (isEmpty) {
+    trendChart.innerHTML = '<p class="empty">' + t('details.noDataPeriod') + '</p>';
+    return;
+  }
   const maxSeconds = Math.max(...days.map((day) => day.seconds), 1);
   trendChart.innerHTML = days.map(({ date, seconds }) => {
     const height = seconds === 0 ? 3 : Math.max(6, Math.round((seconds / maxSeconds) * 100));

@@ -47,7 +47,7 @@ Leia a [política de privacidade atual](PRIVACY.md) e o [plano para uma futura s
 
 ## Desenvolvimento
 
-O projeto é uma extensão Chrome Manifest V3 feita com JavaScript, HTML e CSS puros — não há dependências, etapa de build ou suíte de testes automatizada.
+O projeto é uma extensão Chrome Manifest V3 feita com JavaScript, HTML e CSS puros; não há dependências, etapa de build ou suíte de testes automatizada.
 
 1. Abra `chrome://extensions` no Chrome.
 2. Ative o **Modo do desenvolvedor**.

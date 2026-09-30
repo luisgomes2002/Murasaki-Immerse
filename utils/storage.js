@@ -1,4 +1,4 @@
-// Murasaki Immerse — Wrapper do chrome.storage.local
+// Murasaki Immerse: Wrapper do chrome.storage.local
 // Gerencia dados de imersão, cache de idioma e streak
 
 const DATA_KEY = "immersion_data";
@@ -97,9 +97,9 @@ export async function getToday() {
 
 /**
  * Adiciona segundos de imersão para um idioma na data atual.
- * @param {string} [date] — data no formato YYYY-MM-DD (padrão: hoje)
- * @param {string} language — código ISO do idioma (ex: 'ja')
- * @param {number} seconds — quantos segundos adicionar
+ * @param {string} [date] - data no formato YYYY-MM-DD (padrão: hoje)
+ * @param {string} language - código ISO do idioma (ex: 'ja')
+ * @param {number} seconds - quantos segundos adicionar
  */
 export async function addTime(date, language, seconds) {
   if (!language || seconds <= 0) return;
@@ -117,7 +117,7 @@ export async function addTime(date, language, seconds) {
 
 /**
  * Retorna o histórico dos últimos N dias.
- * @param {number} days — quantos dias (padrão 7)
+ * @param {number} days - quantos dias (padrão 7)
  * @returns {Promise<Array<{ date: string, totalSeconds: number, languages: Object }>>}
  */
 export async function getHistory(days = 7) {
@@ -377,7 +377,7 @@ export async function getMonthHistory() {
 
 /**
  * Total de segundos por idioma nos últimos N dias.
- * @param {number} days — quantos dias (padrão 30)
+ * @param {number} days - quantos dias (padrão 30)
  * @returns {Promise<Object<string, number>>}
  */
 export async function getTotalByLanguage(days = 30) {

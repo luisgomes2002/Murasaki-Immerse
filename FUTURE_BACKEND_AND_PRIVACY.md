@@ -5,7 +5,7 @@ Este documento separa o funcionamento atual da extensão do plano futuro. Hoje o
 ## Separar os dois usos de Google
 
 1. **OAuth da extensão para YouTube.** Continua opcional e limitado ao escopo `youtube.readonly`, apenas para identificar o idioma de vídeos. Não é um login na sua plataforma e não deve ser usado como sessão do seu site.
-2. **Login da sua plataforma.** Site e backend devem usar OAuth/OIDC próprio, com cliente do tipo **Web application**, redirect URIs exatas e validação de `state`, `nonce`, emissor, audiência e expiração do ID token. A extensão deve autenticar-se no backend por fluxo próprio — por exemplo, `chrome.identity.launchWebAuthFlow` com PKCE — e receber uma sessão/token curto do backend.
+2. **Login da sua plataforma.** Site e backend devem usar OAuth/OIDC próprio, com cliente do tipo **Web application**, redirect URIs exatas e validação de `state`, `nonce`, emissor, audiência e expiração do ID token. A extensão deve autenticar-se no backend por fluxo próprio (por exemplo, `chrome.identity.launchWebAuthFlow` com PKCE) e receber uma sessão/token curto do backend.
 
 Não reutilize o token da YouTube Data API como credencial da sua API e não o envie ao backend. Mantenha clientes OAuth separados para Chrome Extension e Web application; segredos do cliente web ficam somente no servidor, nunca na extensão ou no repositório.
 

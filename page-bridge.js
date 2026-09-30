@@ -1,4 +1,4 @@
-// Murasaki Immerse — bridge executado no contexto principal do YouTube.
+// Murasaki Immerse: bridge executado no contexto principal do YouTube.
 // O content script não pode acessar variáveis JavaScript da página diretamente.
 (function () {
   'use strict';
